@@ -49,7 +49,7 @@ import "./App.css";
 
 type Session = LoginResponse | null;
 type Theme = "light" | "dark";
-type MenuSection = "dashboard" | "app" | "users" | "hosting" | "domain" | "integration" | "subscription" | "secret" | "attachment" | "audit";
+type MenuSection = "dashboard" | "app" | "app_view" | "users" | "hosting" | "domain" | "integration" | "subscription" | "secret" | "attachment" | "audit";
 
 interface AppDetailState {
   app: AppRecord;
@@ -383,6 +383,12 @@ export function App(): JSX.Element {
       }),
     [now]
   );
+
+  function showValue(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) return "Não informado";
+    const text = String(value).trim();
+    return text ? text : "Não informado";
+  }
 
   const requiresSelectedApp = useMemo(
     () => ["hosting", "domain", "integration", "subscription", "secret", "attachment"].includes(activeMenu),
@@ -751,6 +757,7 @@ export function App(): JSX.Element {
           <nav className="menu-list">
             <button type="button" className={`menu-link ${activeMenu === "dashboard" ? "active" : ""}`} onClick={() => setActiveMenu("dashboard")}>Dashboard</button>
             <button type="button" className={`menu-link ${activeMenu === "app" ? "active" : ""}`} onClick={() => setActiveMenu("app")}>Apps</button>
+            {selectedAppId && <button type="button" className={`menu-link ${activeMenu === "app_view" ? "active" : ""}`} onClick={() => setActiveMenu("app_view")}>Visão do App</button>}
             <button type="button" className={`menu-link ${activeMenu === "users" ? "active" : ""}`} onClick={() => setActiveMenu("users")}>Usuarios</button>
             <button type="button" className={`menu-link ${activeMenu === "hosting" ? "active" : ""}`} onClick={() => setActiveMenu("hosting")}>Hospedagem</button>
             <button type="button" className={`menu-link ${activeMenu === "domain" ? "active" : ""}`} onClick={() => setActiveMenu("domain")}>Domínio</button>
@@ -825,7 +832,14 @@ export function App(): JSX.Element {
               {apps.map((app) => {
                 const appAlerts = alertsByApp.get(app.id) ?? [];
                 return (
-                  <button key={app.id} className={`app-item ${selectedAppId === app.id ? "active" : ""}`} onClick={() => setSelectedAppId(app.id)}>
+                  <button
+                    key={app.id}
+                    className={`app-item ${selectedAppId === app.id ? "active" : ""}`}
+                    onClick={() => {
+                      setSelectedAppId(app.id);
+                      setActiveMenu("app_view");
+                    }}
+                  >
                     <strong>{app.commercialName}</strong>
                     <div className="muted">{app.name}</div>
                     <div className="muted">Status: {app.status} {app.owner ? `· Resp.: ${app.owner}` : ""}</div>
@@ -858,6 +872,112 @@ export function App(): JSX.Element {
                   <button className="button secondary danger" type="button" disabled={loading || session.user.role === "leitor"} onClick={handleDeleteSelectedApp}>Excluir App</button>
                 </div>
               </form>
+            )}
+          </article>
+
+          <article className={`card module-card ${activeMenu !== "app_view" ? "hidden" : ""}`}>
+            {!selectedAppId || !detail ? (
+              <p className="muted">Selecione um app na lista para abrir a visão completa.</p>
+            ) : (
+              <div className="app-profile">
+                <div className="profile-header">
+                  <h3 className="section-title">Visão Completa do App</h3>
+                  <p className="muted">
+                    {detail.app.commercialName} ({detail.app.name})
+                  </p>
+                </div>
+
+                <div className="profile-grid">
+                  <section className="profile-block">
+                    <h4>Cadastro Base</h4>
+                    <div className="profile-row"><span>Nome interno</span><strong>{showValue(detail.app.name)}</strong></div>
+                    <div className="profile-row"><span>Nome comercial</span><strong>{showValue(detail.app.commercialName)}</strong></div>
+                    <div className="profile-row"><span>Status</span><strong>{showValue(detail.app.status)}</strong></div>
+                    <div className="profile-row"><span>Responsável técnico</span><strong>{showValue(detail.app.owner)}</strong></div>
+                    <div className="profile-row"><span>Tags</span><strong>{detail.app.tags.length ? detail.app.tags.join(", ") : "Não informado"}</strong></div>
+                    <div className="profile-row"><span>Descrição</span><strong>{showValue(detail.app.description)}</strong></div>
+                    <div className="profile-row"><span>Criado em</span><strong>{new Date(detail.app.createdAt).toLocaleString("pt-BR")}</strong></div>
+                    <div className="profile-row"><span>Atualizado em</span><strong>{new Date(detail.app.updatedAt).toLocaleString("pt-BR")}</strong></div>
+                  </section>
+
+                  <section className="profile-block">
+                    <h4>Hospedagem</h4>
+                    {detail.hostings.length === 0 && <div className="profile-empty">Não informado</div>}
+                    {detail.hostings.map((h) => (
+                      <div className="profile-item" key={h.id}>
+                        <div className="profile-row"><span>Provedor</span><strong>{showValue(h.provider)}</strong></div>
+                        <div className="profile-row"><span>IP</span><strong>{showValue(h.ip)}</strong></div>
+                        <div className="profile-row"><span>Tipo</span><strong>{showValue(h.type)}</strong></div>
+                        <div className="profile-row"><span>Região</span><strong>{showValue(h.region)}</strong></div>
+                        <div className="profile-row"><span>Observações</span><strong>{showValue(h.notes)}</strong></div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="profile-block">
+                    <h4>Domínios</h4>
+                    {detail.domains.length === 0 && <div className="profile-empty">Não informado</div>}
+                    {detail.domains.map((d) => (
+                      <div className="profile-item" key={d.id}>
+                        <div className="profile-row"><span>Domínio</span><strong>{showValue(d.domain)}</strong></div>
+                        <div className="profile-row"><span>Registrador</span><strong>{showValue(d.registrar)}</strong></div>
+                        <div className="profile-row"><span>Status</span><strong>{showValue(d.status)}</strong></div>
+                        <div className="profile-row"><span>Expiração</span><strong>{showValue(d.expiresAt ? d.expiresAt.slice(0, 10) : undefined)}</strong></div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="profile-block">
+                    <h4>Integrações</h4>
+                    {detail.integrations.length === 0 && <div className="profile-empty">Não informado</div>}
+                    {detail.integrations.map((i) => (
+                      <div className="profile-item" key={i.id}>
+                        <div className="profile-row"><span>Provider</span><strong>{showValue(i.provider)}</strong></div>
+                        <div className="profile-row"><span>Nome</span><strong>{showValue(i.integrationName)}</strong></div>
+                        <div className="profile-row"><span>Escopo</span><strong>{showValue(i.scope)}</strong></div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="profile-block">
+                    <h4>Assinaturas Técnicas</h4>
+                    {detail.subscriptions.length === 0 && <div className="profile-empty">Não informado</div>}
+                    {detail.subscriptions.map((s) => (
+                      <div className="profile-item" key={s.id}>
+                        <div className="profile-row"><span>Fornecedor</span><strong>{showValue(s.provider)}</strong></div>
+                        <div className="profile-row"><span>Nome no cartão</span><strong>{showValue(s.cardHolderName)}</strong></div>
+                        <div className="profile-row"><span>Cartão</span><strong>{showValue(`**** ${s.cardLast4}`)}</strong></div>
+                        <div className="profile-row"><span>Recorrência</span><strong>{showValue(s.recurrence)}</strong></div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="profile-block">
+                    <h4>Segredos</h4>
+                    {detail.secrets.length === 0 && <div className="profile-empty">Não informado</div>}
+                    {detail.secrets.map((s) => (
+                      <div className="profile-item" key={s.id}>
+                        <div className="profile-row"><span>Tipo</span><strong>{showValue(s.kind)}</strong></div>
+                        <div className="profile-row"><span>Rótulo</span><strong>{showValue(s.label)}</strong></div>
+                        <div className="profile-row"><span>Valor</span><strong>{session.user.role === "admin" && revealedSecrets[s.id] ? revealedSecrets[s.id] : "Protegido"}</strong></div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="profile-block">
+                    <h4>Anexos</h4>
+                    {detail.attachments.length === 0 && <div className="profile-empty">Não informado</div>}
+                    {detail.attachments.map((a) => (
+                      <div className="profile-item" key={a.id}>
+                        <div className="profile-row"><span>Arquivo</span><strong>{showValue(a.fileName)}</strong></div>
+                        <div className="profile-row"><span>Tipo</span><strong>{showValue(a.mimeType)}</strong></div>
+                        <div className="profile-row"><span>Tamanho</span><strong>{showValue(`${a.sizeBytes} bytes`)}</strong></div>
+                        <div className="profile-row"><span>Enviado por</span><strong>{showValue(a.uploadedBy)}</strong></div>
+                      </div>
+                    ))}
+                  </section>
+                </div>
+              </div>
             )}
           </article>
 

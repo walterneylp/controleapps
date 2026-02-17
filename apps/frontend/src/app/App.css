@@ -49,30 +49,30 @@
 }
 
 .theme-dark {
-  --bg: #050c18;
-  --bg-alt: #0a1425;
-  --surface: #111f34;
-  --surface-2: #162742;
-  --surface-3: #1b2f4f;
-  --surface-tint: #1a3154;
+  --bg: #0c1119;
+  --bg-alt: #111826;
+  --surface: #171f2d;
+  --surface-2: #1d2737;
+  --surface-3: #243044;
+  --surface-tint: #2a3952;
 
-  --text: #edf4ff;
-  --text-soft: #d1def2;
-  --text-muted: #a5b9d8;
+  --text: #f2f6ff;
+  --text-soft: #d9e2f2;
+  --text-muted: #b2bfd4;
 
-  --border: #294266;
-  --border-strong: #32507b;
-  --accent: #79b5ff;
-  --accent-2: #9ac8ff;
-  --accent-soft: rgba(121, 181, 255, 0.2);
+  --border: #31435d;
+  --border-strong: #415777;
+  --accent: #5da2ff;
+  --accent-2: #7bb4ff;
+  --accent-soft: rgba(93, 162, 255, 0.25);
 
-  --ok: #79e3b1;
-  --danger: #ff9a95;
+  --ok: #7ee0b2;
+  --danger: #ff9f95;
 
-  --shadow-sm: 0 10px 22px rgba(0, 0, 0, 0.24);
-  --shadow-md: 0 18px 36px rgba(0, 0, 0, 0.34);
-  --shadow-lg: 0 24px 46px rgba(0, 0, 0, 0.42);
-  --focus-ring: 0 0 0 3px rgba(121, 181, 255, 0.35);
+  --shadow-sm: 0 10px 22px rgba(0, 0, 0, 0.32);
+  --shadow-md: 0 20px 40px rgba(0, 0, 0, 0.44);
+  --shadow-lg: 0 28px 52px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(93, 162, 255, 0.38);
 }
 
 * {
@@ -508,6 +508,69 @@ body {
 
 .hidden {
   display: none;
+}
+
+.app-profile {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.profile-header {
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.profile-grid {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+}
+
+.profile-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  background: color-mix(in srgb, var(--surface-3) 90%, transparent);
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.profile-block h4 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.profile-item {
+  border-top: 1px dashed var(--border);
+  padding-top: var(--space-xs);
+  margin-top: var(--space-xs);
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  align-items: baseline;
+}
+
+.profile-row span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.profile-row strong {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  text-align: right;
+}
+
+.profile-empty {
+  color: var(--text-muted);
+  font-size: 0.88rem;
 }
 
 .app-list::-webkit-scrollbar,
