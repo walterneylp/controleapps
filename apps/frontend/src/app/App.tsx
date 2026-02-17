@@ -48,6 +48,7 @@ interface AppDetailState {
 export function App(): JSX.Element {
   const [theme, setTheme] = useState<Theme>("light");
   const [activeMenu, setActiveMenu] = useState<MenuSection>("dashboard");
+  const [now, setNow] = useState<Date>(new Date());
 
   const [session, setSession] = useState<Session>(null);
   const [email, setEmail] = useState("admin@controle.local");
@@ -218,6 +219,11 @@ export function App(): JSX.Element {
     setEditStatus(detail.app.status);
   }, [detail?.app]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const alertsByApp = useMemo(() => {
     const map = new Map<string, AlertRecord[]>();
     for (const alert of alerts) {
@@ -246,6 +252,27 @@ export function App(): JSX.Element {
 
     return { total, ativos, inativos, emDesenvolvimento, appsComAlertaAlta, appsSemAlerta };
   }, [alerts, alertsByApp, apps]);
+
+  const nowTime = useMemo(
+    () =>
+      now.toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      }),
+    [now]
+  );
+
+  const nowDate = useMemo(
+    () =>
+      now.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }),
+    [now]
+  );
 
   const requiresSelectedApp = useMemo(
     () => ["hosting", "domain", "integration", "subscription", "secret", "attachment"].includes(activeMenu),
@@ -338,6 +365,10 @@ export function App(): JSX.Element {
           <p className="muted">
             Usuário: {session.user.name} ({session.user.role})
           </p>
+        </div>
+        <div className="datetime-block">
+          <div className="datetime-time">{nowTime}</div>
+          <div className="datetime-date">{nowDate}</div>
         </div>
         <div className="right">
           <input className="input" placeholder="Buscar app" value={search} onChange={(e) => setSearch(e.target.value)} />
