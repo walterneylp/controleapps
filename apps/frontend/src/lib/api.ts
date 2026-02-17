@@ -159,17 +159,31 @@ export async function listApps(token: string, search = ""): Promise<AppRecord[]>
   return payload.items;
 }
 
-export async function createApp(token: string, input: { name: string; commercialName: string; description?: string }): Promise<AppRecord> {
+export async function createApp(
+  token: string,
+  input: {
+    name: string;
+    commercialName: string;
+    description?: string;
+    status?: "ativo" | "inativo";
+    tags?: string[];
+    owner?: string;
+  }
+): Promise<AppRecord> {
   return request<AppRecord>("/apps", token, {
     method: "POST",
-    body: JSON.stringify({ ...input, status: "ativo", tags: [] })
+    body: JSON.stringify({
+      ...input,
+      status: input.status ?? "ativo",
+      tags: input.tags ?? []
+    })
   });
 }
 
 export async function updateApp(
   token: string,
   appId: string,
-  input: Partial<{ name: string; commercialName: string; description?: string; status: "ativo" | "inativo"; owner?: string }>
+  input: Partial<{ name: string; commercialName: string; description?: string; status: "ativo" | "inativo"; owner?: string; tags?: string[] }>
 ): Promise<AppRecord> {
   return request<AppRecord>(`/apps/${appId}`, token, {
     method: "PUT",

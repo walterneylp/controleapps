@@ -75,6 +75,9 @@ export function App(): JSX.Element {
   const [newAppName, setNewAppName] = useState("");
   const [newCommercialName, setNewCommercialName] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newAppOwner, setNewAppOwner] = useState("");
+  const [newAppStatus, setNewAppStatus] = useState<"ativo" | "inativo">("ativo");
+  const [newAppTags, setNewAppTags] = useState("");
 
   const [hostingProvider, setHostingProvider] = useState("");
   const [hostingIp, setHostingIp] = useState("");
@@ -104,6 +107,8 @@ export function App(): JSX.Element {
   const [editCommercialName, setEditCommercialName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState<"ativo" | "inativo">("ativo");
+  const [editOwner, setEditOwner] = useState("");
+  const [editTags, setEditTags] = useState("");
 
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -185,12 +190,34 @@ export function App(): JSX.Element {
   async function handleCreateApp(e: React.FormEvent) {
     e.preventDefault();
     if (!session) return;
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode criar apps.");
+      return;
+    }
+    if (!newAppName.trim() || !newCommercialName.trim()) {
+      setError("Nome interno e nome comercial sao obrigatorios.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await createApp(session.accessToken, { name: newAppName, commercialName: newCommercialName, description: newDescription });
+      await createApp(session.accessToken, {
+        name: newAppName.trim(),
+        commercialName: newCommercialName.trim(),
+        description: newDescription.trim() || undefined,
+        status: newAppStatus,
+        owner: newAppOwner.trim() || undefined,
+        tags: newAppTags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      });
       setNewAppName("");
       setNewCommercialName("");
       setNewDescription("");
+      setNewAppOwner("");
+      setNewAppStatus("ativo");
+      setNewAppTags("");
       await refreshCoreData(session.accessToken, search);
       notifyOk("App criado.");
     } catch (err) {
@@ -232,6 +259,8 @@ export function App(): JSX.Element {
     setEditCommercialName(detail.app.commercialName);
     setEditDescription(detail.app.description ?? "");
     setEditStatus(detail.app.status);
+    setEditOwner(detail.app.owner ?? "");
+    setEditTags((detail.app.tags ?? []).join(", "));
   }, [detail?.app]);
 
   useEffect(() => {
@@ -307,6 +336,10 @@ export function App(): JSX.Element {
       setError("Selecione um app para editar.");
       return;
     }
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode editar apps.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -314,7 +347,12 @@ export function App(): JSX.Element {
         name: editName,
         commercialName: editCommercialName,
         description: editDescription,
-        status: editStatus
+        status: editStatus,
+        owner: editOwner.trim() || undefined,
+        tags: editTags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
       });
       await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
       notifyOk("App atualizado.");
@@ -328,6 +366,10 @@ export function App(): JSX.Element {
   async function handleDeleteSelectedApp() {
     if (!session || !selectedAppId) {
       setError("Selecione um app para excluir.");
+      return;
+    }
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode excluir apps.");
       return;
     }
 
@@ -530,11 +572,25 @@ export function App(): JSX.Element {
 
           <article id="mod-app" className={`card module-card ${activeMenu !== "app" ? "hidden" : ""}`}>
             <h3 className="section-title">Apps ({apps.length})</h3>
+            {session.user.role === "leitor" && (
+              <p className="muted">Perfil leitor possui acesso somente de visualizacao para apps.</p>
+            )}
             <form className="grid" onSubmit={handleCreateApp}>
               <input className="input" placeholder="Nome interno" value={newAppName} onChange={(e) => setNewAppName(e.target.value)} />
               <input className="input" placeholder="Nome comercial" value={newCommercialName} onChange={(e) => setNewCommercialName(e.target.value)} />
               <input className="input" placeholder="Descrição" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
-              <button className="button" type="submit" disabled={loading}>Criar App</button>
+              <input className="input" placeholder="Responsável técnico" value={newAppOwner} onChange={(e) => setNewAppOwner(e.target.value)} />
+              <select className="select" value={newAppStatus} onChange={(e) => setNewAppStatus(e.target.value as "ativo" | "inativo")}>
+                <option value="ativo">Ativo</option>
+                <option value="inativo">Inativo</option>
+              </select>
+              <input
+                className="input"
+                placeholder="Tags (separadas por vírgula)"
+                value={newAppTags}
+                onChange={(e) => setNewAppTags(e.target.value)}
+              />
+              <button className="button" type="submit" disabled={loading || session.user.role === "leitor"}>Criar App</button>
             </form>
 
             <div className="app-list" style={{ marginTop: 12 }}>
@@ -544,6 +600,8 @@ export function App(): JSX.Element {
                   <button key={app.id} className={`app-item ${selectedAppId === app.id ? "active" : ""}`} onClick={() => setSelectedAppId(app.id)}>
                     <strong>{app.commercialName}</strong>
                     <div className="muted">{app.name}</div>
+                    <div className="muted">Status: {app.status} {app.owner ? `· Resp.: ${app.owner}` : ""}</div>
+                    {app.tags.length > 0 && <div className="muted">Tags: {app.tags.join(", ")}</div>}
                     <div className="muted">{appAlerts.length ? `${appAlerts.length} alerta(s)` : "Sem alertas"}</div>
                   </button>
                 );
@@ -556,13 +614,20 @@ export function App(): JSX.Element {
                 <input className="input" placeholder="Nome interno" value={editName} onChange={(e) => setEditName(e.target.value)} />
                 <input className="input" placeholder="Nome comercial" value={editCommercialName} onChange={(e) => setEditCommercialName(e.target.value)} />
                 <input className="input" placeholder="Descrição" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                <input className="input" placeholder="Responsável técnico" value={editOwner} onChange={(e) => setEditOwner(e.target.value)} />
                 <select className="select" value={editStatus} onChange={(e) => setEditStatus(e.target.value as "ativo" | "inativo")}>
                   <option value="ativo">Ativo</option>
                   <option value="inativo">Inativo</option>
                 </select>
+                <input
+                  className="input"
+                  placeholder="Tags (separadas por vírgula)"
+                  value={editTags}
+                  onChange={(e) => setEditTags(e.target.value)}
+                />
                 <div className="action-row">
-                  <button className="button" type="submit" disabled={loading}>Salvar alterações</button>
-                  <button className="button secondary danger" type="button" disabled={loading} onClick={handleDeleteSelectedApp}>Excluir App</button>
+                  <button className="button" type="submit" disabled={loading || session.user.role === "leitor"}>Salvar alterações</button>
+                  <button className="button secondary danger" type="button" disabled={loading || session.user.role === "leitor"} onClick={handleDeleteSelectedApp}>Excluir App</button>
                 </div>
               </form>
             )}
