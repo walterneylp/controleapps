@@ -10,6 +10,7 @@ import { subscriptionsRouter } from "./modules/subscriptions/subscriptions.route
 import { secretsRouter } from "./modules/secrets/secrets.routes.js";
 import { attachmentsRouter } from "./modules/attachments/attachments.routes.js";
 import { alertsRouter } from "./modules/alerts/alerts.routes.js";
+import { usersRouter } from "./modules/users/users.routes.js";
 import { HttpError } from "./core/http/errors.js";
 
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api", subscriptionsRouter);
 app.use("/api", secretsRouter);
 app.use("/api", attachmentsRouter);
 app.use("/api", alertsRouter);
+app.use("/api", usersRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err instanceof HttpError) {

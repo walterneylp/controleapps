@@ -101,6 +101,16 @@ export interface AlertRecord {
   message: string;
 }
 
+export interface SystemUserRecord {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  emailConfirmed: boolean;
+  createdAt: string;
+  lastSignInAt: string | null;
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3333/api";
 
 async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {
@@ -251,4 +261,36 @@ export async function listAuditEvents(token: string): Promise<unknown[]> {
 export async function listAlerts(token: string): Promise<AlertRecord[]> {
   const payload = await request<{ items: AlertRecord[] }>("/alerts", token);
   return payload.items;
+}
+
+export async function listSystemUsers(token: string): Promise<SystemUserRecord[]> {
+  const payload = await request<{ items: SystemUserRecord[] }>("/users", token);
+  return payload.items;
+}
+
+export async function createSystemUser(
+  token: string,
+  input: { email: string; name: string; role: Role; password: string }
+): Promise<SystemUserRecord> {
+  return request<SystemUserRecord>("/users", token, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateSystemUser(
+  token: string,
+  userId: string,
+  input: Partial<{ email: string; name: string; role: Role; password: string }>
+): Promise<SystemUserRecord> {
+  return request<SystemUserRecord>(`/users/${userId}`, token, {
+    method: "PUT",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function deleteSystemUser(token: string, userId: string): Promise<void> {
+  await request(`/users/${userId}`, token, {
+    method: "DELETE"
+  });
 }

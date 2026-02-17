@@ -7,6 +7,8 @@ import {
   createIntegration,
   createSecret,
   createSubscription,
+  createSystemUser,
+  deleteSystemUser,
   deleteApp,
   getAppDetail,
   listAlerts,
@@ -15,8 +17,10 @@ import {
   listAuditEvents,
   listSecrets,
   listSubscriptions,
+  listSystemUsers,
   login,
   revealSecret,
+  updateSystemUser,
   updateApp,
   type AlertRecord,
   type AppRecord,
@@ -26,6 +30,7 @@ import {
   type IntegrationRecord,
   type LoginResponse,
   type SecretRecord,
+  type SystemUserRecord,
   type SubscriptionRecord
 } from "../lib/api";
 import { BUILD_NUMBER, VERSION_LABEL } from "../generated/buildInfo";
@@ -33,7 +38,7 @@ import "./App.css";
 
 type Session = LoginResponse | null;
 type Theme = "light" | "dark";
-type MenuSection = "dashboard" | "app" | "hosting" | "domain" | "integration" | "subscription" | "secret" | "attachment" | "audit";
+type MenuSection = "dashboard" | "app" | "users" | "hosting" | "domain" | "integration" | "subscription" | "secret" | "attachment" | "audit";
 
 interface AppDetailState {
   app: AppRecord;
@@ -61,6 +66,7 @@ export function App(): JSX.Element {
   const [search, setSearch] = useState("");
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [auditEvents, setAuditEvents] = useState<unknown[]>([]);
+  const [systemUsers, setSystemUsers] = useState<SystemUserRecord[]>([]);
 
   const [selectedAppId, setSelectedAppId] = useState("");
   const [detail, setDetail] = useState<AppDetailState | null>(null);
@@ -98,6 +104,15 @@ export function App(): JSX.Element {
   const [editCommercialName, setEditCommercialName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState<"ativo" | "inativo">("ativo");
+
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"admin" | "editor" | "leitor">("leitor");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [editingUserId, setEditingUserId] = useState("");
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserRole, setEditUserRole] = useState<"admin" | "editor" | "leitor">("leitor");
+  const [editUserPassword, setEditUserPassword] = useState("");
 
   async function refreshCoreData(token: string, currentSearch = "") {
     const [appsResult, alertsResult] = await Promise.all([listApps(token, currentSearch), listAlerts(token)]);
@@ -142,14 +157,14 @@ export function App(): JSX.Element {
         const events = await listAuditEvents(result.accessToken);
         setAuditEvents(events.slice(0, 30));
       }
-
-      notifyOk("Login realizado com sucesso.");
+      setSuccess("");
     } catch (err) {
       notifyError(err, "Erro inesperado no login");
       setSession(null);
       setApps([]);
       setAlerts([]);
       setAuditEvents([]);
+      setSystemUsers([]);
     } finally {
       setLoading(false);
     }
@@ -218,6 +233,13 @@ export function App(): JSX.Element {
     setEditDescription(detail.app.description ?? "");
     setEditStatus(detail.app.status);
   }, [detail?.app]);
+
+  useEffect(() => {
+    if (!session || activeMenu !== "users" || session.user.role !== "admin") return;
+    listSystemUsers(session.accessToken)
+      .then(setSystemUsers)
+      .catch((err) => notifyError(err, "Falha ao carregar usuarios"));
+  }, [activeMenu, session]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -327,6 +349,80 @@ export function App(): JSX.Element {
     }
   }
 
+  async function refreshUsers() {
+    if (!session || session.user.role !== "admin") return;
+    const users = await listSystemUsers(session.accessToken);
+    setSystemUsers(users);
+  }
+
+  async function handleCreateUser(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session || session.user.role !== "admin") return;
+    setLoading(true);
+    try {
+      await createSystemUser(session.accessToken, {
+        name: newUserName,
+        email: newUserEmail,
+        role: newUserRole,
+        password: newUserPassword
+      });
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserRole("leitor");
+      await refreshUsers();
+      notifyOk("Usuario criado.");
+    } catch (err) {
+      notifyError(err, "Falha ao criar usuario");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateUser(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session || session.user.role !== "admin" || !editingUserId) return;
+    setLoading(true);
+    try {
+      await updateSystemUser(session.accessToken, editingUserId, {
+        name: editUserName,
+        role: editUserRole,
+        password: editUserPassword || undefined
+      });
+      setEditingUserId("");
+      setEditUserName("");
+      setEditUserRole("leitor");
+      setEditUserPassword("");
+      await refreshUsers();
+      notifyOk("Usuario atualizado.");
+    } catch (err) {
+      notifyError(err, "Falha ao atualizar usuario");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteUser(userId: string) {
+    if (!session || session.user.role !== "admin") return;
+    if (!window.confirm("Deseja realmente excluir este usuario?")) return;
+    setLoading(true);
+    try {
+      await deleteSystemUser(session.accessToken, userId);
+      if (editingUserId === userId) {
+        setEditingUserId("");
+        setEditUserName("");
+        setEditUserRole("leitor");
+        setEditUserPassword("");
+      }
+      await refreshUsers();
+      notifyOk("Usuario excluido.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir usuario");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!session) {
     return (
       <main className={`shell theme-${theme}`}>
@@ -385,6 +481,7 @@ export function App(): JSX.Element {
           <nav className="menu-list">
             <button type="button" className={`menu-link ${activeMenu === "dashboard" ? "active" : ""}`} onClick={() => setActiveMenu("dashboard")}>Dashboard</button>
             <button type="button" className={`menu-link ${activeMenu === "app" ? "active" : ""}`} onClick={() => setActiveMenu("app")}>Apps</button>
+            <button type="button" className={`menu-link ${activeMenu === "users" ? "active" : ""}`} onClick={() => setActiveMenu("users")}>Usuarios</button>
             <button type="button" className={`menu-link ${activeMenu === "hosting" ? "active" : ""}`} onClick={() => setActiveMenu("hosting")}>Hospedagem</button>
             <button type="button" className={`menu-link ${activeMenu === "domain" ? "active" : ""}`} onClick={() => setActiveMenu("domain")}>Domínio</button>
             <button type="button" className={`menu-link ${activeMenu === "integration" ? "active" : ""}`} onClick={() => setActiveMenu("integration")}>Integrações</button>
@@ -468,6 +565,88 @@ export function App(): JSX.Element {
                   <button className="button secondary danger" type="button" disabled={loading} onClick={handleDeleteSelectedApp}>Excluir App</button>
                 </div>
               </form>
+            )}
+          </article>
+
+          <article className={`card module-card ${activeMenu !== "users" ? "hidden" : ""}`}>
+            <h3 className="section-title">Usuarios do Sistema</h3>
+            {session.user.role !== "admin" ? (
+              <p className="muted">Apenas administradores podem gerenciar usuarios.</p>
+            ) : (
+              <>
+                <form className="grid" onSubmit={handleCreateUser}>
+                  <input className="input" placeholder="Nome" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+                  <input className="input" placeholder="Email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
+                  <select className="select" value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as "admin" | "editor" | "leitor")}>
+                    <option value="admin">Admin</option>
+                    <option value="editor">Editor</option>
+                    <option value="leitor">Leitor</option>
+                  </select>
+                  <input className="input" type="password" placeholder="Senha temporaria" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
+                  <button className="button" type="submit" disabled={loading}>Criar Usuario</button>
+                </form>
+
+                <div className="rows" style={{ marginTop: 12 }}>
+                  {systemUsers.map((user) => (
+                    <div className="row" key={user.id}>
+                      <div>
+                        <strong>{user.name}</strong> · {user.email} · {user.role}
+                        <div className="muted">
+                          {user.emailConfirmed ? "Email confirmado" : "Email pendente"} · Criado em {new Date(user.createdAt).toLocaleDateString("pt-BR")}
+                        </div>
+                      </div>
+                      <div className="action-row" style={{ marginTop: 8 }}>
+                        <button
+                          className="button secondary"
+                          onClick={() => {
+                            setEditingUserId(user.id);
+                            setEditUserName(user.name);
+                            setEditUserRole(user.role);
+                            setEditUserPassword("");
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="button secondary danger"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={session.user.id === user.id}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {systemUsers.length === 0 && <div className="row">Nenhum usuario encontrado.</div>}
+                </div>
+
+                {editingUserId && (
+                  <form className="grid" style={{ marginTop: 12 }} onSubmit={handleUpdateUser}>
+                    <input className="input" placeholder="Nome" value={editUserName} onChange={(e) => setEditUserName(e.target.value)} />
+                    <select className="select" value={editUserRole} onChange={(e) => setEditUserRole(e.target.value as "admin" | "editor" | "leitor")}>
+                      <option value="admin">Admin</option>
+                      <option value="editor">Editor</option>
+                      <option value="leitor">Leitor</option>
+                    </select>
+                    <input className="input" type="password" placeholder="Nova senha (opcional)" value={editUserPassword} onChange={(e) => setEditUserPassword(e.target.value)} />
+                    <div className="action-row">
+                      <button className="button" type="submit" disabled={loading}>Salvar Usuario</button>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => {
+                          setEditingUserId("");
+                          setEditUserName("");
+                          setEditUserRole("leitor");
+                          setEditUserPassword("");
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
             )}
           </article>
 
