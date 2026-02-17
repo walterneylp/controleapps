@@ -89,6 +89,8 @@ export function App(): JSX.Element {
   const [newAppOwner, setNewAppOwner] = useState("");
   const [newAppStatus, setNewAppStatus] = useState<"ativo" | "inativo">("ativo");
   const [newAppTags, setNewAppTags] = useState("");
+  const [showCreateAppForm, setShowCreateAppForm] = useState(false);
+  const [showEditAppForm, setShowEditAppForm] = useState(false);
 
   const [hostingProvider, setHostingProvider] = useState("");
   const [hostingIp, setHostingIp] = useState("");
@@ -363,6 +365,14 @@ export function App(): JSX.Element {
     return { total, ativos, inativos, emDesenvolvimento, appsComAlertaAlta, appsSemAlerta };
   }, [alerts, alertsByApp, apps]);
 
+  const appNameOptions = useMemo(() => [...new Set(apps.map((a) => a.name).filter(Boolean))], [apps]);
+  const commercialNameOptions = useMemo(() => [...new Set(apps.map((a) => a.commercialName).filter(Boolean))], [apps]);
+  const ownerOptions = useMemo(() => [...new Set(apps.map((a) => a.owner ?? "").filter(Boolean))], [apps]);
+  const tagOptions = useMemo(
+    () => [...new Set(apps.flatMap((a) => a.tags).map((tag) => tag.trim()).filter(Boolean))],
+    [apps]
+  );
+
   const nowTime = useMemo(
     () =>
       now.toLocaleTimeString("pt-BR", {
@@ -428,25 +438,22 @@ export function App(): JSX.Element {
     }
   }
 
-  async function handleDeleteSelectedApp() {
-    if (!session || !selectedAppId) {
-      setError("Selecione um app para excluir.");
-      return;
-    }
+  async function handleDeleteAppById(appId: string) {
+    if (!session) return;
     if (session.user.role === "leitor") {
       setError("Perfil leitor nao pode excluir apps.");
       return;
     }
-
-    if (!window.confirm("Deseja realmente excluir este app? Esta ação não pode ser desfeita.")) {
-      return;
-    }
+    if (!window.confirm("Deseja realmente excluir este app? Esta ação não pode ser desfeita.")) return;
 
     setLoading(true);
     try {
-      await deleteApp(session.accessToken, selectedAppId);
-      setSelectedAppId("");
-      setDetail(null);
+      await deleteApp(session.accessToken, appId);
+      if (selectedAppId === appId) {
+        setSelectedAppId("");
+        setDetail(null);
+        setShowEditAppForm(false);
+      }
       await refreshCoreData(session.accessToken, search);
       notifyOk("App excluído.");
     } catch (err) {
@@ -454,6 +461,29 @@ export function App(): JSX.Element {
     } finally {
       setLoading(false);
     }
+  }
+
+  function openCreateAppForm() {
+    setShowEditAppForm(false);
+    setShowCreateAppForm(true);
+    setNewAppName("");
+    setNewCommercialName("");
+    setNewDescription("");
+    setNewAppOwner("");
+    setNewAppStatus("ativo");
+    setNewAppTags("");
+  }
+
+  function openEditAppForm(app: AppRecord) {
+    setSelectedAppId(app.id);
+    setShowCreateAppForm(false);
+    setShowEditAppForm(true);
+    setEditName(app.name);
+    setEditCommercialName(app.commercialName);
+    setEditDescription(app.description ?? "");
+    setEditStatus(app.status);
+    setEditOwner(app.owner ?? "");
+    setEditTags((app.tags ?? []).join(", "));
   }
 
   async function handleDeleteHosting(hostingId: string) {
@@ -810,69 +840,110 @@ export function App(): JSX.Element {
             {session.user.role === "leitor" && (
               <p className="muted">Perfil leitor possui acesso somente de visualizacao para apps.</p>
             )}
-            <form className="grid" onSubmit={handleCreateApp}>
-              <input className="input" placeholder="Nome interno" value={newAppName} onChange={(e) => setNewAppName(e.target.value)} />
-              <input className="input" placeholder="Nome comercial" value={newCommercialName} onChange={(e) => setNewCommercialName(e.target.value)} />
-              <input className="input" placeholder="Descrição" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
-              <input className="input" placeholder="Responsável técnico" value={newAppOwner} onChange={(e) => setNewAppOwner(e.target.value)} />
-              <select className="select" value={newAppStatus} onChange={(e) => setNewAppStatus(e.target.value as "ativo" | "inativo")}>
-                <option value="ativo">Ativo</option>
-                <option value="inativo">Inativo</option>
-              </select>
-              <input
-                className="input"
-                placeholder="Tags (separadas por vírgula)"
-                value={newAppTags}
-                onChange={(e) => setNewAppTags(e.target.value)}
-              />
-              <button className="button" type="submit" disabled={loading || session.user.role === "leitor"}>Criar App</button>
-            </form>
+
+            <div className="action-row">
+              <button className="button" type="button" disabled={session.user.role === "leitor"} onClick={openCreateAppForm}>
+                Novo App
+              </button>
+            </div>
 
             <div className="app-list mt-sm">
               {apps.map((app) => {
                 const appAlerts = alertsByApp.get(app.id) ?? [];
                 return (
-                  <button
-                    key={app.id}
-                    className={`app-item ${selectedAppId === app.id ? "active" : ""}`}
-                    onClick={() => {
-                      setSelectedAppId(app.id);
-                      setActiveMenu("app_view");
-                    }}
-                  >
-                    <strong>{app.commercialName}</strong>
-                    <div className="muted">{app.name}</div>
-                    <div className="muted">Status: {app.status} {app.owner ? `· Resp.: ${app.owner}` : ""}</div>
-                    {app.tags.length > 0 && <div className="muted">Tags: {app.tags.join(", ")}</div>}
-                    <div className="muted">{appAlerts.length ? `${appAlerts.length} alerta(s)` : "Sem alertas"}</div>
-                  </button>
+                  <div key={app.id} className={`app-item ${selectedAppId === app.id ? "active" : ""}`}>
+                    <div>
+                      <strong>{app.commercialName}</strong>
+                      <div className="muted">{app.name}</div>
+                      <div className="muted">Status: {app.status} {app.owner ? `· Resp.: ${app.owner}` : ""}</div>
+                      {app.tags.length > 0 && <div className="muted">Tags: {app.tags.join(", ")}</div>}
+                      <div className="muted">{appAlerts.length ? `${appAlerts.length} alerta(s)` : "Sem alertas"}</div>
+                    </div>
+                    <div className="action-row mt-xs">
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => {
+                          setSelectedAppId(app.id);
+                          setActiveMenu("app_view");
+                        }}
+                      >
+                        Abrir
+                      </button>
+                      <button type="button" className="button secondary" disabled={session.user.role === "leitor"} onClick={() => openEditAppForm(app)}>
+                        Editar
+                      </button>
+                      <button type="button" className="button secondary danger" disabled={session.user.role === "leitor"} onClick={() => handleDeleteAppById(app.id)}>
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
               {apps.length === 0 && <div className="muted">Nenhum app cadastrado.</div>}
             </div>
 
-            {selectedAppId && detail && (
+            {showCreateAppForm && (
+              <form className="grid mt-sm" onSubmit={handleCreateApp}>
+                <input className="input" list="app-name-options" placeholder="Nome interno" value={newAppName} onChange={(e) => setNewAppName(e.target.value)} />
+                <input className="input" list="app-commercial-options" placeholder="Nome comercial" value={newCommercialName} onChange={(e) => setNewCommercialName(e.target.value)} />
+                <input className="input" placeholder="Descrição" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+                <input className="input" list="app-owner-options" placeholder="Responsável técnico" value={newAppOwner} onChange={(e) => setNewAppOwner(e.target.value)} />
+                <input className="input" list="app-status-options" placeholder="Status (ativo/inativo)" value={newAppStatus} onChange={(e) => setNewAppStatus((e.target.value === "inativo" ? "inativo" : "ativo"))} />
+                <input className="input" list="app-tag-options" placeholder="Tags (separadas por vírgula)" value={newAppTags} onChange={(e) => setNewAppTags(e.target.value)} />
+                <div className="action-row">
+                  <button className="button" type="submit" disabled={loading || session.user.role === "leitor"}>Criar App</button>
+                  <button className="button secondary" type="button" onClick={() => setShowCreateAppForm(false)}>Cancelar</button>
+                </div>
+              </form>
+            )}
+
+            {showEditAppForm && selectedAppId && (
               <form className="grid mt-sm" onSubmit={handleUpdateSelectedApp}>
-                <input className="input" placeholder="Nome interno" value={editName} onChange={(e) => setEditName(e.target.value)} />
-                <input className="input" placeholder="Nome comercial" value={editCommercialName} onChange={(e) => setEditCommercialName(e.target.value)} />
+                <input className="input" list="app-name-options" placeholder="Nome interno" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                <input className="input" list="app-commercial-options" placeholder="Nome comercial" value={editCommercialName} onChange={(e) => setEditCommercialName(e.target.value)} />
                 <input className="input" placeholder="Descrição" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
-                <input className="input" placeholder="Responsável técnico" value={editOwner} onChange={(e) => setEditOwner(e.target.value)} />
-                <select className="select" value={editStatus} onChange={(e) => setEditStatus(e.target.value as "ativo" | "inativo")}>
-                  <option value="ativo">Ativo</option>
-                  <option value="inativo">Inativo</option>
-                </select>
+                <input className="input" list="app-owner-options" placeholder="Responsável técnico" value={editOwner} onChange={(e) => setEditOwner(e.target.value)} />
+                <input className="input" list="app-status-options" placeholder="Status (ativo/inativo)" value={editStatus} onChange={(e) => setEditStatus((e.target.value === "inativo" ? "inativo" : "ativo"))} />
                 <input
                   className="input"
+                  list="app-tag-options"
                   placeholder="Tags (separadas por vírgula)"
                   value={editTags}
                   onChange={(e) => setEditTags(e.target.value)}
                 />
                 <div className="action-row">
                   <button className="button" type="submit" disabled={loading || session.user.role === "leitor"}>Salvar alterações</button>
-                  <button className="button secondary danger" type="button" disabled={loading || session.user.role === "leitor"} onClick={handleDeleteSelectedApp}>Excluir App</button>
+                  <button className="button secondary danger" type="button" disabled={loading || session.user.role === "leitor"} onClick={() => handleDeleteAppById(selectedAppId)}>Excluir App</button>
+                  <button className="button secondary" type="button" onClick={() => setShowEditAppForm(false)}>Fechar edição</button>
                 </div>
               </form>
             )}
+
+            <datalist id="app-name-options">
+              {appNameOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+            <datalist id="app-commercial-options">
+              {commercialNameOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+            <datalist id="app-owner-options">
+              {ownerOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+            <datalist id="app-tag-options">
+              {tagOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+            <datalist id="app-status-options">
+              <option value="ativo" />
+              <option value="inativo" />
+            </datalist>
           </article>
 
           <article className={`card module-card ${activeMenu !== "app_view" ? "hidden" : ""}`}>
