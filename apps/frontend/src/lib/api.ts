@@ -213,6 +213,18 @@ export async function createHosting(
   return request<HostingRecord>("/hostings", token, { method: "POST", body: JSON.stringify(input) });
 }
 
+export async function updateHosting(
+  token: string,
+  hostingId: string,
+  input: Partial<{ provider: string; ip: string; type: "VPS" | "Provedor"; region?: string; notes?: string }>
+): Promise<HostingRecord> {
+  return request<HostingRecord>(`/hostings/${hostingId}`, token, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deleteHosting(token: string, hostingId: string): Promise<void> {
+  await request(`/hostings/${hostingId}`, token, { method: "DELETE" });
+}
+
 export async function createDomain(
   token: string,
   input: { appId: string; domain: string; registrar: string; status: "ativo" | "expirado" | "pendente"; expiresAt?: string }

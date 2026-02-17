@@ -3,6 +3,7 @@ import {
   createApp,
   createAttachment,
   createDomain,
+  deleteHosting,
   createHosting,
   createIntegration,
   createSecret,
@@ -21,6 +22,7 @@ import {
   login,
   revealSecret,
   updateSystemUser,
+  updateHosting,
   updateApp,
   type AlertRecord,
   type AppRecord,
@@ -82,6 +84,9 @@ export function App(): JSX.Element {
   const [hostingProvider, setHostingProvider] = useState("");
   const [hostingIp, setHostingIp] = useState("");
   const [hostingType, setHostingType] = useState<"VPS" | "Provedor">("VPS");
+  const [hostingRegion, setHostingRegion] = useState("");
+  const [hostingNotes, setHostingNotes] = useState("");
+  const [editingHostingId, setEditingHostingId] = useState("");
 
   const [domainValue, setDomainValue] = useState("");
   const [domainRegistrar, setDomainRegistrar] = useState("");
@@ -389,6 +394,41 @@ export function App(): JSX.Element {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleDeleteHosting(hostingId: string) {
+    if (!session || !selectedAppId) return;
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode excluir hospedagem.");
+      return;
+    }
+    if (!window.confirm("Deseja excluir esta hospedagem?")) return;
+
+    setLoading(true);
+    try {
+      await deleteHosting(session.accessToken, hostingId);
+      setEditingHostingId("");
+      setHostingProvider("");
+      setHostingIp("");
+      setHostingType("VPS");
+      setHostingRegion("");
+      setHostingNotes("");
+      await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
+      notifyOk("Hospedagem excluida.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir hospedagem");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function loadHostingForEdit(hosting: HostingRecord) {
+    setEditingHostingId(hosting.id);
+    setHostingProvider(hosting.provider);
+    setHostingIp(hosting.ip);
+    setHostingType(hosting.type);
+    setHostingRegion(hosting.region ?? "");
+    setHostingNotes(hosting.notes ?? "");
   }
 
   async function refreshUsers() {
@@ -737,16 +777,40 @@ export function App(): JSX.Element {
                     className="grid"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      if (session.user.role === "leitor") {
+                        setError("Perfil leitor nao pode alterar hospedagem.");
+                        return;
+                      }
+                      if (!hostingProvider.trim() || !hostingIp.trim()) {
+                        setError("Provedor e IP sao obrigatorios.");
+                        return;
+                      }
                       withSelectedApp(async () => {
-                        await createHosting(session.accessToken, {
-                          appId: selectedAppId,
-                          provider: hostingProvider,
-                          ip: hostingIp,
-                          type: hostingType
-                        });
+                        if (editingHostingId) {
+                          await updateHosting(session.accessToken, editingHostingId, {
+                            provider: hostingProvider.trim(),
+                            ip: hostingIp.trim(),
+                            type: hostingType,
+                            region: hostingRegion.trim() || undefined,
+                            notes: hostingNotes.trim() || undefined
+                          });
+                        } else {
+                          await createHosting(session.accessToken, {
+                            appId: selectedAppId,
+                            provider: hostingProvider.trim(),
+                            ip: hostingIp.trim(),
+                            type: hostingType,
+                            region: hostingRegion.trim() || undefined,
+                            notes: hostingNotes.trim() || undefined
+                          });
+                        }
                         setHostingProvider("");
                         setHostingIp("");
-                        notifyOk("Hospedagem cadastrada.");
+                        setHostingType("VPS");
+                        setHostingRegion("");
+                        setHostingNotes("");
+                        setEditingHostingId("");
+                        notifyOk(editingHostingId ? "Hospedagem atualizada." : "Hospedagem cadastrada.");
                       });
                     }}
                   >
@@ -756,9 +820,53 @@ export function App(): JSX.Element {
                       <option value="VPS">VPS</option>
                       <option value="Provedor">Provedor</option>
                     </select>
-                    <button className="button">Adicionar</button>
+                    <input className="input" placeholder="Região (opcional)" value={hostingRegion} onChange={(e) => setHostingRegion(e.target.value)} />
+                    <input className="input" placeholder="Observações (opcional)" value={hostingNotes} onChange={(e) => setHostingNotes(e.target.value)} />
+                    <div className="action-row">
+                      <button className="button" disabled={session.user.role === "leitor"}>
+                        {editingHostingId ? "Salvar Hospedagem" : "Adicionar"}
+                      </button>
+                      {editingHostingId && (
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => {
+                            setEditingHostingId("");
+                            setHostingProvider("");
+                            setHostingIp("");
+                            setHostingType("VPS");
+                            setHostingRegion("");
+                            setHostingNotes("");
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   </form>
-                  <div className="rows">{detail.hostings.map((h) => <div className="row" key={h.id}>{h.provider} · {h.ip} · {h.type}</div>)}{detail.hostings.length === 0 && <div className="row">Sem hospedagens</div>}</div>
+                  <div className="rows">
+                    {detail.hostings.map((h) => (
+                      <div className="row" key={h.id}>
+                        <div>
+                          {h.provider} · {h.ip} · {h.type}
+                          {(h.region || h.notes) && (
+                            <div className="muted">
+                              {h.region ? `Região: ${h.region}` : ""} {h.region && h.notes ? "·" : ""} {h.notes ? `Obs: ${h.notes}` : ""}
+                            </div>
+                          )}
+                        </div>
+                        <div className="action-row" style={{ marginTop: 8 }}>
+                          <button className="button secondary" onClick={() => loadHostingForEdit(h)} disabled={session.user.role === "leitor"}>
+                            Editar
+                          </button>
+                          <button className="button secondary danger" onClick={() => handleDeleteHosting(h.id)} disabled={session.user.role === "leitor"}>
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {detail.hostings.length === 0 && <div className="row">Sem hospedagens</div>}
+                  </div>
                 </article>
 
                 <article id="mod-domain" className={`card module-card ${activeMenu !== "domain" ? "hidden" : ""}`}>
