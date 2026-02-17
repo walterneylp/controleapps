@@ -526,10 +526,6 @@ export function App(): JSX.Element {
           </div>
         </section>
       </div>
-      <div className="version-chip">
-        <div>Versao: {VERSION_LABEL}</div>
-        <div>Build: {BUILD_NUMBER}</div>
-      </div>
     </main>
   );
 }
