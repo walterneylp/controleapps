@@ -9,14 +9,14 @@ import { asString } from "../../shared/http.js";
 
 export const attachmentsRouter = Router();
 
-attachmentsRouter.get("/attachments", requireAuth, (req, res) => {
+attachmentsRouter.get("/attachments", requireAuth, async (req, res) => {
   const appId = asString(req.query.appId).trim();
-  res.status(200).json({ items: attachmentsStore.list(appId || undefined) });
+  res.status(200).json({ items: await attachmentsStore.list(appId || undefined) });
 });
 
-attachmentsRouter.post("/attachments", requireAuth, requireRole(["admin", "editor"]), (req: AuthenticatedRequest, res) => {
+attachmentsRouter.post("/attachments", requireAuth, requireRole(["admin", "editor"]), async (req: AuthenticatedRequest, res) => {
   const appId = String(req.body?.appId ?? "").trim();
-  if (!inventoryStore.getApp(appId)) throw new HttpError(404, "App nao encontrado", "NOT_FOUND");
+  if (!(await inventoryStore.getApp(appId))) throw new HttpError(404, "App nao encontrado", "NOT_FOUND");
 
   const fileName = String(req.body?.fileName ?? "").trim();
   const mimeType = String(req.body?.mimeType ?? "").trim();
@@ -34,16 +34,24 @@ attachmentsRouter.post("/attachments", requireAuth, requireRole(["admin", "edito
   }
 
   const storagePath = `documents/${appId}/${Date.now()}_${fileName.replace(/\s+/g, "_")}`;
-  const item = attachmentsStore.create({ appId, fileName, mimeType, sizeBytes, storagePath, uploadedBy: req.user?.email });
+  const item = await attachmentsStore.create({
+    appId,
+    fileName,
+    mimeType,
+    sizeBytes,
+    storagePath,
+    uploadedBy: req.user?.email,
+    fileContentBase64: typeof req.body?.fileContentBase64 === "string" ? req.body.fileContentBase64 : undefined
+  });
 
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "create", resource: "attachments", resourceId: item.id });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "create", resource: "attachments", resourceId: item.id });
   res.status(201).json(item);
 });
 
-attachmentsRouter.delete("/attachments/:id", requireAuth, requireRole(["admin", "editor"]), (req: AuthenticatedRequest, res) => {
+attachmentsRouter.delete("/attachments/:id", requireAuth, requireRole(["admin", "editor"]), async (req: AuthenticatedRequest, res) => {
   const attachmentId = asString(req.params.id);
-  const ok = attachmentsStore.delete(attachmentId);
+  const ok = await attachmentsStore.delete(attachmentId);
   if (!ok) throw new HttpError(404, "Anexo nao encontrado", "NOT_FOUND");
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "delete", resource: "attachments", resourceId: attachmentId });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "delete", resource: "attachments", resourceId: attachmentId });
   res.status(204).send();
 });

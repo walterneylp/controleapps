@@ -9,15 +9,15 @@ import { asString } from "../../shared/http.js";
 
 export const secretsRouter = Router();
 
-secretsRouter.get("/secrets", requireAuth, (req, res) => {
+secretsRouter.get("/secrets", requireAuth, async (req, res) => {
   const appId = asString(req.query.appId).trim();
   if (!appId) throw new HttpError(400, "appId e obrigatorio", "VALIDATION_ERROR");
-  res.status(200).json({ items: secretsService.listByApp(appId) });
+  res.status(200).json({ items: await secretsService.listByApp(appId) });
 });
 
-secretsRouter.post("/secrets", requireAuth, requireRole(["admin", "editor"]), (req: AuthenticatedRequest, res) => {
+secretsRouter.post("/secrets", requireAuth, requireRole(["admin", "editor"]), async (req: AuthenticatedRequest, res) => {
   const appId = String(req.body?.appId ?? "").trim();
-  if (!inventoryStore.getApp(appId)) throw new HttpError(404, "App nao encontrado", "NOT_FOUND");
+  if (!(await inventoryStore.getApp(appId))) throw new HttpError(404, "App nao encontrado", "NOT_FOUND");
 
   const label = String(req.body?.label ?? "").trim();
   const plainValue = String(req.body?.plainValue ?? "").trim();
@@ -26,35 +26,35 @@ secretsRouter.post("/secrets", requireAuth, requireRole(["admin", "editor"]), (r
     throw new HttpError(400, "kind, label e plainValue sao obrigatorios", "VALIDATION_ERROR");
   }
 
-  const created = secretsService.create({ appId, kind, label, plainValue, metadata: req.body?.metadata ?? {} });
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "create", resource: "secrets", resourceId: created.id });
+  const created = await secretsService.create({ appId, kind, label, plainValue, metadata: req.body?.metadata ?? {} });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "create", resource: "secrets", resourceId: created.id });
   res.status(201).json({ id: created.id, appId: created.appId, kind: created.kind, label: created.label, createdAt: created.createdAt, updatedAt: created.updatedAt });
 });
 
-secretsRouter.get("/secrets/:id/reveal", requireAuth, requireRole(["admin"]), (req: AuthenticatedRequest, res) => {
+secretsRouter.get("/secrets/:id/reveal", requireAuth, requireRole(["admin"]), async (req: AuthenticatedRequest, res) => {
   const secretId = asString(req.params.id);
-  const value = secretsService.reveal(secretId);
+  const value = await secretsService.reveal(secretId);
   if (!value) throw new HttpError(404, "Segredo nao encontrado", "NOT_FOUND");
 
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "view_secret", resource: "secrets", resourceId: secretId });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "view_secret", resource: "secrets", resourceId: secretId });
   res.status(200).json({ id: secretId, value });
 });
 
-secretsRouter.put("/secrets/:id", requireAuth, requireRole(["admin", "editor"]), (req: AuthenticatedRequest, res) => {
+secretsRouter.put("/secrets/:id", requireAuth, requireRole(["admin", "editor"]), async (req: AuthenticatedRequest, res) => {
   const plainValue = String(req.body?.plainValue ?? "").trim();
   if (!plainValue) throw new HttpError(400, "plainValue e obrigatorio", "VALIDATION_ERROR");
 
   const secretId = asString(req.params.id);
-  const updated = secretsService.update(secretId, plainValue);
+  const updated = await secretsService.update(secretId, plainValue);
   if (!updated) throw new HttpError(404, "Segredo nao encontrado", "NOT_FOUND");
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "update", resource: "secrets", resourceId: secretId });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "update", resource: "secrets", resourceId: secretId });
   res.status(200).json({ id: updated.id, updatedAt: updated.updatedAt });
 });
 
-secretsRouter.delete("/secrets/:id", requireAuth, requireRole(["admin"]), (req: AuthenticatedRequest, res) => {
+secretsRouter.delete("/secrets/:id", requireAuth, requireRole(["admin"]), async (req: AuthenticatedRequest, res) => {
   const secretId = asString(req.params.id);
-  const ok = secretsService.delete(secretId);
+  const ok = await secretsService.delete(secretId);
   if (!ok) throw new HttpError(404, "Segredo nao encontrado", "NOT_FOUND");
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "delete", resource: "secrets", resourceId: secretId });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "delete", resource: "secrets", resourceId: secretId });
   res.status(204).send();
 });

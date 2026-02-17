@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { env } from "../../config/env.js";
 import type { AuthUser } from "../../core/http/types.js";
+import { supabaseRuntime } from "../../integrations/supabase.js";
 
 interface LoginInput {
   email: string;
@@ -41,6 +42,16 @@ const devUsers: DevUser[] = [
   }
 ];
 
+function roleFromSupabaseMetadata(user: Record<string, unknown>): AuthUser["role"] {
+  const appMeta = (user.app_metadata as Record<string, unknown> | undefined) ?? {};
+  const userMeta = (user.user_metadata as Record<string, unknown> | undefined) ?? {};
+  const roleCandidate = (appMeta.role ?? userMeta.role ?? "leitor") as string;
+  if (roleCandidate === "admin" || roleCandidate === "editor" || roleCandidate === "leitor") {
+    return roleCandidate;
+  }
+  return "leitor";
+}
+
 function sign(payload: object): string {
   const rawPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
@@ -74,7 +85,32 @@ function verify(token: string): Record<string, unknown> | null {
 }
 
 export class AuthService {
-  login(input: LoginInput): LoginResult | null {
+  async login(input: LoginInput): Promise<LoginResult | null> {
+    if (env.authMode === "supabase" && supabaseRuntime.authClient) {
+      const { data, error } = await supabaseRuntime.authClient.auth.signInWithPassword({
+        email: input.email,
+        password: input.password
+      });
+
+      if (error || !data.session || !data.user) {
+        return null;
+      }
+
+      const user = data.user as unknown as Record<string, unknown>;
+      const mappedUser: AuthUser = {
+        id: String(user.id),
+        email: String(user.email ?? input.email),
+        name: String((user.user_metadata as Record<string, unknown> | undefined)?.name ?? user.email ?? "Usuario"),
+        role: roleFromSupabaseMetadata(user)
+      };
+
+      return {
+        accessToken: data.session.access_token,
+        expiresIn: data.session.expires_in ?? env.tokenTtlSeconds,
+        user: mappedUser
+      };
+    }
+
     const user = devUsers.find((candidate) => candidate.email === input.email);
     if (!user || user.password !== input.password) {
       return null;
@@ -102,7 +138,20 @@ export class AuthService {
     };
   }
 
-  verifyToken(token: string): AuthUser | null {
+  async verifyToken(token: string): Promise<AuthUser | null> {
+    if (env.authMode === "supabase" && supabaseRuntime.authClient) {
+      const { data, error } = await supabaseRuntime.authClient.auth.getUser(token);
+      if (error || !data.user) return null;
+
+      const user = data.user as unknown as Record<string, unknown>;
+      return {
+        id: String(user.id),
+        email: String(user.email ?? ""),
+        name: String((user.user_metadata as Record<string, unknown> | undefined)?.name ?? user.email ?? "Usuario"),
+        role: roleFromSupabaseMetadata(user)
+      };
+    }
+
     const payload = verify(token);
     if (!payload) {
       return null;

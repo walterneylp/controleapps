@@ -6,59 +6,71 @@ import { subscriptionsStore } from "../subscriptions/subscriptions.store.js";
 
 export const alertsRouter = Router();
 
-alertsRouter.get("/alerts", requireAuth, (_req, res) => {
-  const apps = inventoryStore.listApps();
+alertsRouter.get("/alerts", requireAuth, async (_req, res) => {
+  const apps = await inventoryStore.listApps();
 
-  const items = apps.flatMap((app) => {
-    const alerts: Array<{ appId: string; severity: "media" | "alta"; code: string; message: string }> = [];
+  const alertsPerApp = await Promise.all(
+    apps.map(async (app) => {
+      const [hostings, domains, integrations, subscriptions, attachments] = await Promise.all([
+        inventoryStore.listHostings(app.id),
+        inventoryStore.listDomains(app.id),
+        inventoryStore.listIntegrations(app.id),
+        subscriptionsStore.list(app.id),
+        attachmentsStore.list(app.id)
+      ]);
 
-    if (inventoryStore.listHostings(app.id).length === 0) {
-      alerts.push({
-        appId: app.id,
-        severity: "alta",
-        code: "MISSING_HOSTING",
-        message: "App sem hospedagem cadastrada"
-      });
-    }
+      const alerts: Array<{ appId: string; severity: "media" | "alta"; code: string; message: string }> = [];
 
-    if (inventoryStore.listDomains(app.id).length === 0) {
-      alerts.push({
-        appId: app.id,
-        severity: "alta",
-        code: "MISSING_DOMAIN",
-        message: "App sem dominio cadastrado"
-      });
-    }
+      if (hostings.length === 0) {
+        alerts.push({
+          appId: app.id,
+          severity: "alta",
+          code: "MISSING_HOSTING",
+          message: "App sem hospedagem cadastrada"
+        });
+      }
 
-    if (inventoryStore.listIntegrations(app.id).length === 0) {
-      alerts.push({
-        appId: app.id,
-        severity: "media",
-        code: "MISSING_INTEGRATION",
-        message: "App sem integracoes IA/API"
-      });
-    }
+      if (domains.length === 0) {
+        alerts.push({
+          appId: app.id,
+          severity: "alta",
+          code: "MISSING_DOMAIN",
+          message: "App sem dominio cadastrado"
+        });
+      }
 
-    if (subscriptionsStore.list(app.id).length === 0) {
-      alerts.push({
-        appId: app.id,
-        severity: "media",
-        code: "MISSING_SUBSCRIPTION",
-        message: "App sem assinatura tecnica cadastrada"
-      });
-    }
+      if (integrations.length === 0) {
+        alerts.push({
+          appId: app.id,
+          severity: "media",
+          code: "MISSING_INTEGRATION",
+          message: "App sem integracoes IA/API"
+        });
+      }
 
-    if (attachmentsStore.list(app.id).length === 0) {
-      alerts.push({
-        appId: app.id,
-        severity: "media",
-        code: "MISSING_ATTACHMENT",
-        message: "App sem anexos"
-      });
-    }
+      if (subscriptions.length === 0) {
+        alerts.push({
+          appId: app.id,
+          severity: "media",
+          code: "MISSING_SUBSCRIPTION",
+          message: "App sem assinatura tecnica cadastrada"
+        });
+      }
 
-    return alerts;
-  });
+      if (attachments.length === 0) {
+        alerts.push({
+          appId: app.id,
+          severity: "media",
+          code: "MISSING_ATTACHMENT",
+          message: "App sem anexos"
+        });
+      }
+
+      return alerts;
+    })
+  );
+
+  const items = alertsPerApp.flat();
 
   res.status(200).json({ items });
 });

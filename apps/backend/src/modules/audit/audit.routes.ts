@@ -9,7 +9,8 @@ auditRouter.get(
   "/audit-events",
   requireAuth,
   requireRole(["admin", "editor"]),
-  (_req: AuthenticatedRequest, res) => {
-    res.status(200).json({ items: auditService.list() });
+  async (_req: AuthenticatedRequest, res) => {
+    const items = await auditService.list();
+    res.status(200).json({ items });
   }
 );

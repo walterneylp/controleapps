@@ -11,14 +11,17 @@ export function requireAuth(req: AuthenticatedRequest, _res: Response, next: Nex
     throw new UnauthorizedError();
   }
 
-  const user = authService.verifyToken(token);
+  authService
+    .verifyToken(token)
+    .then((user) => {
+      if (!user) {
+        throw new UnauthorizedError("Token invalido ou expirado");
+      }
 
-  if (!user) {
-    throw new UnauthorizedError("Token invalido ou expirado");
-  }
-
-  req.user = user;
-  next();
+      req.user = user;
+      next();
+    })
+    .catch((err) => next(err));
 }
 
 export function requireRole(allowedRoles: Role[]) {
@@ -28,7 +31,7 @@ export function requireRole(allowedRoles: Role[]) {
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      auditService.record({
+      void auditService.record({
         actorId: req.user.id,
         actorEmail: req.user.email,
         action: "access_denied",

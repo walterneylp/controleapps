@@ -7,7 +7,7 @@ import type { AuthenticatedRequest } from "../../core/http/types.js";
 
 export const authRouter = Router();
 
-authRouter.post("/login", (req, res) => {
+authRouter.post("/login", async (req, res) => {
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   const password = String(req.body?.password ?? "");
 
@@ -15,10 +15,10 @@ authRouter.post("/login", (req, res) => {
     throw new HttpError(400, "Email e senha sao obrigatorios", "VALIDATION_ERROR");
   }
 
-  const result = authService.login({ email, password });
+  const result = await authService.login({ email, password });
 
   if (!result) {
-    auditService.record({
+    await auditService.record({
       actorEmail: email,
       action: "login_failed",
       resource: "auth.login"
@@ -27,7 +27,7 @@ authRouter.post("/login", (req, res) => {
     throw new HttpError(401, "Credenciais invalidas", "INVALID_CREDENTIALS");
   }
 
-  auditService.record({
+  await auditService.record({
     actorId: result.user.id,
     actorEmail: result.user.email,
     action: "login_success",

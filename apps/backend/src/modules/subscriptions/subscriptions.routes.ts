@@ -9,14 +9,14 @@ import { asString } from "../../shared/http.js";
 
 export const subscriptionsRouter = Router();
 
-subscriptionsRouter.get("/subscriptions", requireAuth, (req, res) => {
+subscriptionsRouter.get("/subscriptions", requireAuth, async (req, res) => {
   const appId = asString(req.query.appId).trim();
-  res.status(200).json({ items: subscriptionsStore.list(appId || undefined) });
+  res.status(200).json({ items: await subscriptionsStore.list(appId || undefined) });
 });
 
-subscriptionsRouter.post("/subscriptions", requireAuth, requireRole(["admin", "editor"]), (req: AuthenticatedRequest, res) => {
+subscriptionsRouter.post("/subscriptions", requireAuth, requireRole(["admin", "editor"]), async (req: AuthenticatedRequest, res) => {
   const appId = String(req.body?.appId ?? "").trim();
-  if (!inventoryStore.getApp(appId)) throw new HttpError(404, "App nao encontrado", "NOT_FOUND");
+  if (!(await inventoryStore.getApp(appId))) throw new HttpError(404, "App nao encontrado", "NOT_FOUND");
 
   const provider = String(req.body?.provider ?? "").trim();
   const cardHolderName = String(req.body?.cardHolderName ?? "").trim();
@@ -25,7 +25,7 @@ subscriptionsRouter.post("/subscriptions", requireAuth, requireRole(["admin", "e
     throw new HttpError(400, "provider, cardHolderName e cardLast4(4 digitos) sao obrigatorios", "VALIDATION_ERROR");
   }
 
-  const item = subscriptionsStore.create({
+  const item = await subscriptionsStore.create({
     appId,
     provider,
     cardHolderName,
@@ -33,22 +33,22 @@ subscriptionsRouter.post("/subscriptions", requireAuth, requireRole(["admin", "e
     recurrence: req.body?.recurrence === "anual" ? "anual" : "mensal"
   });
 
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "create", resource: "subscriptions", resourceId: item.id });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "create", resource: "subscriptions", resourceId: item.id });
   res.status(201).json(item);
 });
 
-subscriptionsRouter.put("/subscriptions/:id", requireAuth, requireRole(["admin", "editor"]), (req: AuthenticatedRequest, res) => {
+subscriptionsRouter.put("/subscriptions/:id", requireAuth, requireRole(["admin", "editor"]), async (req: AuthenticatedRequest, res) => {
   const subscriptionId = asString(req.params.id);
-  const updated = subscriptionsStore.update(subscriptionId, req.body ?? {});
+  const updated = await subscriptionsStore.update(subscriptionId, req.body ?? {});
   if (!updated) throw new HttpError(404, "Assinatura nao encontrada", "NOT_FOUND");
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "update", resource: "subscriptions", resourceId: updated.id });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "update", resource: "subscriptions", resourceId: updated.id });
   res.status(200).json(updated);
 });
 
-subscriptionsRouter.delete("/subscriptions/:id", requireAuth, requireRole(["admin"]), (req: AuthenticatedRequest, res) => {
+subscriptionsRouter.delete("/subscriptions/:id", requireAuth, requireRole(["admin"]), async (req: AuthenticatedRequest, res) => {
   const subscriptionId = asString(req.params.id);
-  const ok = subscriptionsStore.delete(subscriptionId);
+  const ok = await subscriptionsStore.delete(subscriptionId);
   if (!ok) throw new HttpError(404, "Assinatura nao encontrada", "NOT_FOUND");
-  auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "delete", resource: "subscriptions", resourceId: subscriptionId });
+  void auditService.record({ actorId: req.user?.id, actorEmail: req.user?.email, action: "delete", resource: "subscriptions", resourceId: subscriptionId });
   res.status(204).send();
 });
