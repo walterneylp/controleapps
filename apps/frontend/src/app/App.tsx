@@ -3,7 +3,12 @@ import {
   createApp,
   createAttachment,
   createDomain,
+  deleteAttachment,
+  deleteDomain,
   deleteHosting,
+  deleteIntegration,
+  deleteSecret,
+  deleteSubscription,
   createHosting,
   createIntegration,
   createSecret,
@@ -21,6 +26,10 @@ import {
   listSystemUsers,
   login,
   revealSecret,
+  updateDomain,
+  updateIntegration,
+  updateSecret,
+  updateSubscription,
   updateSystemUser,
   updateHosting,
   updateApp,
@@ -91,23 +100,30 @@ export function App(): JSX.Element {
   const [domainValue, setDomainValue] = useState("");
   const [domainRegistrar, setDomainRegistrar] = useState("");
   const [domainStatus, setDomainStatus] = useState<"ativo" | "expirado" | "pendente">("ativo");
+  const [editingDomainId, setEditingDomainId] = useState("");
+  const [domainExpiresAt, setDomainExpiresAt] = useState("");
 
   const [integrationProvider, setIntegrationProvider] = useState("");
   const [integrationName, setIntegrationName] = useState("");
   const [integrationScope, setIntegrationScope] = useState("");
+  const [editingIntegrationId, setEditingIntegrationId] = useState("");
 
   const [subProvider, setSubProvider] = useState("");
   const [subCardName, setSubCardName] = useState("");
   const [subCardLast4, setSubCardLast4] = useState("");
   const [subRecurrence, setSubRecurrence] = useState<"mensal" | "anual">("mensal");
+  const [editingSubscriptionId, setEditingSubscriptionId] = useState("");
 
   const [secretKind, setSecretKind] = useState<"ssh" | "domain" | "api_key">("api_key");
   const [secretLabel, setSecretLabel] = useState("");
   const [secretValue, setSecretValue] = useState("");
+  const [editingSecretId, setEditingSecretId] = useState("");
+  const [newSecretValue, setNewSecretValue] = useState("");
 
   const [attachmentName, setAttachmentName] = useState("");
   const [attachmentType, setAttachmentType] = useState("application/pdf");
   const [attachmentSize, setAttachmentSize] = useState("1024");
+  const [attachmentFileBase64, setAttachmentFileBase64] = useState<string | undefined>(undefined);
   const [editName, setEditName] = useState("");
   const [editCommercialName, setEditCommercialName] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -151,6 +167,16 @@ export function App(): JSX.Element {
   function notifyError(err: unknown, fallback: string) {
     setError(err instanceof Error ? err.message : fallback);
     setSuccess("");
+  }
+
+  async function toBase64(file: File): Promise<string> {
+    const buffer = await file.arrayBuffer();
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -256,6 +282,16 @@ export function App(): JSX.Element {
 
     refreshDetail(selectedAppId).catch((err) => notifyError(err, "Falha ao carregar detalhe"));
   }, [session, selectedAppId]);
+
+  useEffect(() => {
+    setEditingHostingId("");
+    setEditingDomainId("");
+    setEditingIntegrationId("");
+    setEditingSubscriptionId("");
+    setEditingSecretId("");
+    setNewSecretValue("");
+    setAttachmentFileBase64(undefined);
+  }, [selectedAppId]);
 
   useEffect(() => {
     if (!detail?.app) return;
@@ -429,6 +465,140 @@ export function App(): JSX.Element {
     setHostingType(hosting.type);
     setHostingRegion(hosting.region ?? "");
     setHostingNotes(hosting.notes ?? "");
+  }
+
+  function loadDomainForEdit(domain: DomainRecord) {
+    setEditingDomainId(domain.id);
+    setDomainValue(domain.domain);
+    setDomainRegistrar(domain.registrar);
+    setDomainStatus(domain.status);
+    setDomainExpiresAt(domain.expiresAt ?? "");
+  }
+
+  async function handleDeleteDomain(domainId: string) {
+    if (!session || !selectedAppId) return;
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode excluir dominio.");
+      return;
+    }
+    if (!window.confirm("Deseja excluir este dominio?")) return;
+    setLoading(true);
+    try {
+      await deleteDomain(session.accessToken, domainId);
+      setEditingDomainId("");
+      setDomainValue("");
+      setDomainRegistrar("");
+      setDomainStatus("ativo");
+      setDomainExpiresAt("");
+      await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
+      notifyOk("Dominio excluido.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir dominio");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function loadIntegrationForEdit(integration: IntegrationRecord) {
+    setEditingIntegrationId(integration.id);
+    setIntegrationProvider(integration.provider);
+    setIntegrationName(integration.integrationName);
+    setIntegrationScope(integration.scope ?? "");
+  }
+
+  async function handleDeleteIntegration(integrationId: string) {
+    if (!session || !selectedAppId) return;
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode excluir integracao.");
+      return;
+    }
+    if (!window.confirm("Deseja excluir esta integracao?")) return;
+    setLoading(true);
+    try {
+      await deleteIntegration(session.accessToken, integrationId);
+      setEditingIntegrationId("");
+      setIntegrationProvider("");
+      setIntegrationName("");
+      setIntegrationScope("");
+      await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
+      notifyOk("Integracao excluida.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir integracao");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function loadSubscriptionForEdit(subscription: SubscriptionRecord) {
+    setEditingSubscriptionId(subscription.id);
+    setSubProvider(subscription.provider);
+    setSubCardName(subscription.cardHolderName);
+    setSubCardLast4(subscription.cardLast4);
+    setSubRecurrence(subscription.recurrence);
+  }
+
+  async function handleDeleteSubscription(subscriptionId: string) {
+    if (!session || !selectedAppId) return;
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode excluir assinatura.");
+      return;
+    }
+    if (!window.confirm("Deseja excluir esta assinatura?")) return;
+    setLoading(true);
+    try {
+      await deleteSubscription(session.accessToken, subscriptionId);
+      setEditingSubscriptionId("");
+      setSubProvider("");
+      setSubCardName("");
+      setSubCardLast4("");
+      setSubRecurrence("mensal");
+      await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
+      notifyOk("Assinatura excluida.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir assinatura");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteSecret(secretId: string) {
+    if (!session || !selectedAppId) return;
+    if (session.user.role !== "admin") {
+      setError("Apenas admin pode excluir segredo.");
+      return;
+    }
+    if (!window.confirm("Deseja excluir este segredo?")) return;
+    setLoading(true);
+    try {
+      await deleteSecret(session.accessToken, secretId);
+      setEditingSecretId("");
+      setNewSecretValue("");
+      await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
+      notifyOk("Segredo excluido.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir segredo");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!session || !selectedAppId) return;
+    if (session.user.role === "leitor") {
+      setError("Perfil leitor nao pode excluir anexo.");
+      return;
+    }
+    if (!window.confirm("Deseja excluir este anexo?")) return;
+    setLoading(true);
+    try {
+      await deleteAttachment(session.accessToken, attachmentId);
+      await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
+      notifyOk("Anexo excluido.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir anexo");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function refreshUsers() {
@@ -875,11 +1045,37 @@ export function App(): JSX.Element {
                     className="grid"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      if (session.user.role === "leitor") {
+                        setError("Perfil leitor nao pode alterar dominio.");
+                        return;
+                      }
+                      if (!domainValue.trim() || !domainRegistrar.trim()) {
+                        setError("Dominio e registrador sao obrigatorios.");
+                        return;
+                      }
                       withSelectedApp(async () => {
-                        await createDomain(session.accessToken, { appId: selectedAppId, domain: domainValue, registrar: domainRegistrar, status: domainStatus });
+                        if (editingDomainId) {
+                          await updateDomain(session.accessToken, editingDomainId, {
+                            domain: domainValue.trim(),
+                            registrar: domainRegistrar.trim(),
+                            status: domainStatus,
+                            expiresAt: domainExpiresAt.trim() || undefined
+                          });
+                        } else {
+                          await createDomain(session.accessToken, {
+                            appId: selectedAppId,
+                            domain: domainValue.trim(),
+                            registrar: domainRegistrar.trim(),
+                            status: domainStatus,
+                            expiresAt: domainExpiresAt.trim() || undefined
+                          });
+                        }
                         setDomainValue("");
                         setDomainRegistrar("");
-                        notifyOk("Domínio cadastrado.");
+                        setDomainStatus("ativo");
+                        setDomainExpiresAt("");
+                        setEditingDomainId("");
+                        notifyOk(editingDomainId ? "Dominio atualizado." : "Dominio cadastrado.");
                       });
                     }}
                   >
@@ -890,9 +1086,47 @@ export function App(): JSX.Element {
                       <option value="pendente">Pendente</option>
                       <option value="expirado">Expirado</option>
                     </select>
-                    <button className="button">Adicionar</button>
+                    <input className="input" placeholder="Expira em (AAAA-MM-DD)" value={domainExpiresAt} onChange={(e) => setDomainExpiresAt(e.target.value)} />
+                    <div className="action-row">
+                      <button className="button" disabled={session.user.role === "leitor"}>
+                        {editingDomainId ? "Salvar Dominio" : "Adicionar"}
+                      </button>
+                      {editingDomainId && (
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => {
+                            setEditingDomainId("");
+                            setDomainValue("");
+                            setDomainRegistrar("");
+                            setDomainStatus("ativo");
+                            setDomainExpiresAt("");
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   </form>
-                  <div className="rows">{detail.domains.map((d) => <div className="row" key={d.id}>{d.domain} · {d.registrar} · {d.status}</div>)}{detail.domains.length === 0 && <div className="row">Sem domínios</div>}</div>
+                  <div className="rows">
+                    {detail.domains.map((d) => (
+                      <div className="row" key={d.id}>
+                        <div>
+                          {d.domain} · {d.registrar} · {d.status}
+                          {d.expiresAt && <div className="muted">Expira em: {d.expiresAt.slice(0, 10)}</div>}
+                        </div>
+                        <div className="action-row" style={{ marginTop: 8 }}>
+                          <button type="button" className="button secondary" onClick={() => loadDomainForEdit(d)} disabled={session.user.role === "leitor"}>
+                            Editar
+                          </button>
+                          <button type="button" className="button secondary danger" onClick={() => handleDeleteDomain(d.id)} disabled={session.user.role === "leitor"}>
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {detail.domains.length === 0 && <div className="row">Sem domínios</div>}
+                  </div>
                 </article>
 
                 <article id="mod-integration" className={`card module-card ${activeMenu !== "integration" ? "hidden" : ""}`}>
@@ -901,26 +1135,76 @@ export function App(): JSX.Element {
                     className="grid"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      if (session.user.role === "leitor") {
+                        setError("Perfil leitor nao pode alterar integracao.");
+                        return;
+                      }
+                      if (!integrationProvider.trim() || !integrationName.trim()) {
+                        setError("Provider e nome da integracao sao obrigatorios.");
+                        return;
+                      }
                       withSelectedApp(async () => {
-                        await createIntegration(session.accessToken, {
-                          appId: selectedAppId,
-                          provider: integrationProvider,
-                          integrationName: integrationName,
-                          scope: integrationScope
-                        });
+                        if (editingIntegrationId) {
+                          await updateIntegration(session.accessToken, editingIntegrationId, {
+                            provider: integrationProvider.trim(),
+                            integrationName: integrationName.trim(),
+                            scope: integrationScope.trim() || undefined
+                          });
+                        } else {
+                          await createIntegration(session.accessToken, {
+                            appId: selectedAppId,
+                            provider: integrationProvider.trim(),
+                            integrationName: integrationName.trim(),
+                            scope: integrationScope.trim() || undefined
+                          });
+                        }
                         setIntegrationProvider("");
                         setIntegrationName("");
                         setIntegrationScope("");
-                        notifyOk("Integração cadastrada.");
+                        setEditingIntegrationId("");
+                        notifyOk(editingIntegrationId ? "Integracao atualizada." : "Integracao cadastrada.");
                       });
                     }}
                   >
                     <input className="input" placeholder="Provider (OpenAI, Anthropic...)" value={integrationProvider} onChange={(e) => setIntegrationProvider(e.target.value)} />
                     <input className="input" placeholder="Nome da integração" value={integrationName} onChange={(e) => setIntegrationName(e.target.value)} />
                     <input className="input" placeholder="Escopo" value={integrationScope} onChange={(e) => setIntegrationScope(e.target.value)} />
-                    <button className="button">Adicionar</button>
+                    <div className="action-row">
+                      <button className="button" disabled={session.user.role === "leitor"}>
+                        {editingIntegrationId ? "Salvar Integracao" : "Adicionar"}
+                      </button>
+                      {editingIntegrationId && (
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => {
+                            setEditingIntegrationId("");
+                            setIntegrationProvider("");
+                            setIntegrationName("");
+                            setIntegrationScope("");
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   </form>
-                  <div className="rows">{detail.integrations.map((i) => <div className="row" key={i.id}>{i.provider} · {i.integrationName} {i.scope ? `· ${i.scope}` : ""}</div>)}{detail.integrations.length === 0 && <div className="row">Sem integrações</div>}</div>
+                  <div className="rows">
+                    {detail.integrations.map((i) => (
+                      <div className="row" key={i.id}>
+                        <div>{i.provider} · {i.integrationName} {i.scope ? `· ${i.scope}` : ""}</div>
+                        <div className="action-row" style={{ marginTop: 8 }}>
+                          <button type="button" className="button secondary" onClick={() => loadIntegrationForEdit(i)} disabled={session.user.role === "leitor"}>
+                            Editar
+                          </button>
+                          <button type="button" className="button secondary danger" onClick={() => handleDeleteIntegration(i.id)} disabled={session.user.role === "leitor"}>
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {detail.integrations.length === 0 && <div className="row">Sem integrações</div>}
+                  </div>
                 </article>
 
                 <article id="mod-subscription" className={`card module-card ${activeMenu !== "subscription" ? "hidden" : ""}`}>
@@ -929,18 +1213,37 @@ export function App(): JSX.Element {
                     className="grid"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      if (session.user.role === "leitor") {
+                        setError("Perfil leitor nao pode alterar assinatura.");
+                        return;
+                      }
+                      if (!subProvider.trim() || !subCardName.trim() || !/^\d{4}$/.test(subCardLast4.trim())) {
+                        setError("Fornecedor, nome no cartao e 4 ultimos digitos sao obrigatorios.");
+                        return;
+                      }
                       withSelectedApp(async () => {
-                        await createSubscription(session.accessToken, {
-                          appId: selectedAppId,
-                          provider: subProvider,
-                          cardHolderName: subCardName,
-                          cardLast4: subCardLast4,
-                          recurrence: subRecurrence
-                        });
+                        if (editingSubscriptionId) {
+                          await updateSubscription(session.accessToken, editingSubscriptionId, {
+                            provider: subProvider.trim(),
+                            cardHolderName: subCardName.trim(),
+                            cardLast4: subCardLast4.trim(),
+                            recurrence: subRecurrence
+                          });
+                        } else {
+                          await createSubscription(session.accessToken, {
+                            appId: selectedAppId,
+                            provider: subProvider.trim(),
+                            cardHolderName: subCardName.trim(),
+                            cardLast4: subCardLast4.trim(),
+                            recurrence: subRecurrence
+                          });
+                        }
                         setSubProvider("");
                         setSubCardName("");
                         setSubCardLast4("");
-                        notifyOk("Assinatura cadastrada.");
+                        setSubRecurrence("mensal");
+                        setEditingSubscriptionId("");
+                        notifyOk(editingSubscriptionId ? "Assinatura atualizada." : "Assinatura cadastrada.");
                       });
                     }}
                   >
@@ -951,9 +1254,43 @@ export function App(): JSX.Element {
                       <option value="mensal">Mensal</option>
                       <option value="anual">Anual</option>
                     </select>
-                    <button className="button">Adicionar</button>
+                    <div className="action-row">
+                      <button className="button" disabled={session.user.role === "leitor"}>
+                        {editingSubscriptionId ? "Salvar Assinatura" : "Adicionar"}
+                      </button>
+                      {editingSubscriptionId && (
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => {
+                            setEditingSubscriptionId("");
+                            setSubProvider("");
+                            setSubCardName("");
+                            setSubCardLast4("");
+                            setSubRecurrence("mensal");
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   </form>
-                  <div className="rows">{detail.subscriptions.map((s) => <div className="row" key={s.id}>{s.provider} · {s.cardHolderName} · **** {s.cardLast4} · {s.recurrence}</div>)}{detail.subscriptions.length === 0 && <div className="row">Sem assinaturas</div>}</div>
+                  <div className="rows">
+                    {detail.subscriptions.map((s) => (
+                      <div className="row" key={s.id}>
+                        <div>{s.provider} · {s.cardHolderName} · **** {s.cardLast4} · {s.recurrence}</div>
+                        <div className="action-row" style={{ marginTop: 8 }}>
+                          <button type="button" className="button secondary" onClick={() => loadSubscriptionForEdit(s)} disabled={session.user.role === "leitor"}>
+                            Editar
+                          </button>
+                          <button type="button" className="button secondary danger" onClick={() => handleDeleteSubscription(s.id)} disabled={session.user.role === "leitor"}>
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {detail.subscriptions.length === 0 && <div className="row">Sem assinaturas</div>}
+                  </div>
                 </article>
 
                 <article id="mod-secret" className={`card module-card ${activeMenu !== "secret" ? "hidden" : ""}`}>
@@ -962,8 +1299,21 @@ export function App(): JSX.Element {
                     className="grid"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      if (session.user.role === "leitor") {
+                        setError("Perfil leitor nao pode alterar segredos.");
+                        return;
+                      }
+                      if (!secretLabel.trim() || !secretValue.trim()) {
+                        setError("Rotulo e valor secreto sao obrigatorios.");
+                        return;
+                      }
                       withSelectedApp(async () => {
-                        await createSecret(session.accessToken, { appId: selectedAppId, kind: secretKind, label: secretLabel, plainValue: secretValue });
+                        await createSecret(session.accessToken, {
+                          appId: selectedAppId,
+                          kind: secretKind,
+                          label: secretLabel.trim(),
+                          plainValue: secretValue.trim()
+                        });
                         setSecretLabel("");
                         setSecretValue("");
                         notifyOk("Segredo cadastrado com criptografia.");
@@ -977,15 +1327,16 @@ export function App(): JSX.Element {
                     </select>
                     <input className="input" placeholder="Rótulo" value={secretLabel} onChange={(e) => setSecretLabel(e.target.value)} />
                     <input className="input" placeholder="Valor secreto" value={secretValue} onChange={(e) => setSecretValue(e.target.value)} />
-                    <button className="button">Adicionar</button>
+                    <button className="button" disabled={session.user.role === "leitor"}>Adicionar</button>
                   </form>
                   <div className="rows">
                     {detail.secrets.map((s) => (
                       <div className="row" key={s.id}>
-                        {s.kind} · {s.label}
-                        {session.user.role === "admin" && (
-                          <div style={{ marginTop: 6 }}>
+                        <div>{s.kind} · {s.label}</div>
+                        <div className="action-row" style={{ marginTop: 8 }}>
+                          {session.user.role === "admin" && (
                             <button
+                              type="button"
                               className="button secondary"
                               onClick={() =>
                                 withSelectedApp(async () => {
@@ -996,9 +1347,65 @@ export function App(): JSX.Element {
                             >
                               Revelar
                             </button>
-                            {revealedSecrets[s.id] && <div className="muted" style={{ marginTop: 6 }}>Valor: {revealedSecrets[s.id]}</div>}
-                          </div>
+                          )}
+                          {(session.user.role === "admin" || session.user.role === "editor") && (
+                            <button
+                              type="button"
+                              className="button secondary"
+                              onClick={() => {
+                                setEditingSecretId(s.id);
+                                setNewSecretValue("");
+                              }}
+                            >
+                              Alterar Valor
+                            </button>
+                          )}
+                          {session.user.role === "admin" && (
+                            <button type="button" className="button secondary danger" onClick={() => handleDeleteSecret(s.id)}>
+                              Excluir
+                            </button>
+                          )}
+                        </div>
+                        {editingSecretId === s.id && (session.user.role === "admin" || session.user.role === "editor") && (
+                          <form
+                            className="grid"
+                            style={{ marginTop: 8 }}
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              if (!newSecretValue.trim()) {
+                                setError("Informe o novo valor do segredo.");
+                                return;
+                              }
+                              withSelectedApp(async () => {
+                                await updateSecret(session.accessToken, s.id, newSecretValue.trim());
+                                setEditingSecretId("");
+                                setNewSecretValue("");
+                                notifyOk("Segredo atualizado.");
+                              });
+                            }}
+                          >
+                            <input
+                              className="input"
+                              placeholder="Novo valor secreto"
+                              value={newSecretValue}
+                              onChange={(e) => setNewSecretValue(e.target.value)}
+                            />
+                            <div className="action-row">
+                              <button className="button">Salvar</button>
+                              <button
+                                type="button"
+                                className="button secondary"
+                                onClick={() => {
+                                  setEditingSecretId("");
+                                  setNewSecretValue("");
+                                }}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </form>
                         )}
+                        {revealedSecrets[s.id] && <div className="muted" style={{ marginTop: 6 }}>Valor: {revealedSecrets[s.id]}</div>}
                       </div>
                     ))}
                     {detail.secrets.length === 0 && <div className="row">Sem segredos</div>}
@@ -1011,24 +1418,65 @@ export function App(): JSX.Element {
                     className="grid"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      if (session.user.role === "leitor") {
+                        setError("Perfil leitor nao pode alterar anexos.");
+                        return;
+                      }
+                      const size = Number(attachmentSize);
+                      if (!attachmentName.trim() || !attachmentType.trim() || !Number.isFinite(size) || size <= 0) {
+                        setError("Nome, tipo e tamanho valido sao obrigatorios para o anexo.");
+                        return;
+                      }
                       withSelectedApp(async () => {
                         await createAttachment(session.accessToken, {
                           appId: selectedAppId,
-                          fileName: attachmentName,
-                          mimeType: attachmentType,
-                          sizeBytes: Number(attachmentSize)
+                          fileName: attachmentName.trim(),
+                          mimeType: attachmentType.trim(),
+                          sizeBytes: size,
+                          fileContentBase64: attachmentFileBase64
                         });
                         setAttachmentName("");
-                        notifyOk("Anexo (metadado) cadastrado.");
+                        setAttachmentType("application/pdf");
+                        setAttachmentSize("1024");
+                        setAttachmentFileBase64(undefined);
+                        notifyOk("Anexo cadastrado.");
                       });
                     }}
                   >
                     <input className="input" placeholder="Nome do arquivo" value={attachmentName} onChange={(e) => setAttachmentName(e.target.value)} />
                     <input className="input" placeholder="MIME Type" value={attachmentType} onChange={(e) => setAttachmentType(e.target.value)} />
                     <input className="input" placeholder="Tamanho em bytes" value={attachmentSize} onChange={(e) => setAttachmentSize(e.target.value)} />
-                    <button className="button">Adicionar</button>
+                    <input
+                      className="input"
+                      type="file"
+                      onChange={async (e) => {
+                        const file = e.currentTarget.files?.[0];
+                        if (!file) {
+                          setAttachmentFileBase64(undefined);
+                          return;
+                        }
+                        setAttachmentName(file.name);
+                        setAttachmentType(file.type || "application/octet-stream");
+                        setAttachmentSize(String(file.size));
+                        const base64 = await toBase64(file);
+                        setAttachmentFileBase64(base64);
+                      }}
+                    />
+                    <button className="button" disabled={session.user.role === "leitor"}>Adicionar</button>
                   </form>
-                  <div className="rows">{detail.attachments.map((a) => <div className="row" key={a.id}>{a.fileName} · {a.mimeType} · {a.sizeBytes} bytes</div>)}{detail.attachments.length === 0 && <div className="row">Sem anexos</div>}</div>
+                  <div className="rows">
+                    {detail.attachments.map((a) => (
+                      <div className="row" key={a.id}>
+                        <div>{a.fileName} · {a.mimeType} · {a.sizeBytes} bytes</div>
+                        <div className="action-row" style={{ marginTop: 8 }}>
+                          <button type="button" className="button secondary danger" onClick={() => handleDeleteAttachment(a.id)} disabled={session.user.role === "leitor"}>
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {detail.attachments.length === 0 && <div className="row">Sem anexos</div>}
+                  </div>
                 </article>
               </div>
             </>

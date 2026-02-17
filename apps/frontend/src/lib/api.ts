@@ -232,11 +232,35 @@ export async function createDomain(
   return request<DomainRecord>("/domains", token, { method: "POST", body: JSON.stringify(input) });
 }
 
+export async function updateDomain(
+  token: string,
+  domainId: string,
+  input: Partial<{ domain: string; registrar: string; status: "ativo" | "expirado" | "pendente"; expiresAt?: string }>
+): Promise<DomainRecord> {
+  return request<DomainRecord>(`/domains/${domainId}`, token, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deleteDomain(token: string, domainId: string): Promise<void> {
+  await request(`/domains/${domainId}`, token, { method: "DELETE" });
+}
+
 export async function createIntegration(
   token: string,
   input: { appId: string; provider: string; integrationName: string; scope?: string }
 ): Promise<IntegrationRecord> {
   return request<IntegrationRecord>("/integrations", token, { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateIntegration(
+  token: string,
+  integrationId: string,
+  input: Partial<{ provider: string; integrationName: string; scope?: string; secretRefId?: string }>
+): Promise<IntegrationRecord> {
+  return request<IntegrationRecord>(`/integrations/${integrationId}`, token, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deleteIntegration(token: string, integrationId: string): Promise<void> {
+  await request(`/integrations/${integrationId}`, token, { method: "DELETE" });
 }
 
 export async function listSubscriptions(token: string, appId: string): Promise<SubscriptionRecord[]> {
@@ -249,6 +273,18 @@ export async function createSubscription(
   input: { appId: string; provider: string; cardHolderName: string; cardLast4: string; recurrence: "mensal" | "anual" }
 ): Promise<SubscriptionRecord> {
   return request<SubscriptionRecord>("/subscriptions", token, { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateSubscription(
+  token: string,
+  subscriptionId: string,
+  input: Partial<{ provider: string; cardHolderName: string; cardLast4: string; recurrence: "mensal" | "anual" }>
+): Promise<SubscriptionRecord> {
+  return request<SubscriptionRecord>(`/subscriptions/${subscriptionId}`, token, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deleteSubscription(token: string, subscriptionId: string): Promise<void> {
+  await request(`/subscriptions/${subscriptionId}`, token, { method: "DELETE" });
 }
 
 export async function listSecrets(token: string, appId: string): Promise<SecretRecord[]> {
@@ -267,6 +303,17 @@ export async function revealSecret(token: string, secretId: string): Promise<{ i
   return request<{ id: string; value: string }>(`/secrets/${secretId}/reveal`, token);
 }
 
+export async function updateSecret(token: string, secretId: string, plainValue: string): Promise<{ id: string; updatedAt: string }> {
+  return request<{ id: string; updatedAt: string }>(`/secrets/${secretId}`, token, {
+    method: "PUT",
+    body: JSON.stringify({ plainValue })
+  });
+}
+
+export async function deleteSecret(token: string, secretId: string): Promise<void> {
+  await request(`/secrets/${secretId}`, token, { method: "DELETE" });
+}
+
 export async function listAttachments(token: string, appId: string): Promise<AttachmentRecord[]> {
   const payload = await request<{ items: AttachmentRecord[] }>(`/attachments?appId=${encodeURIComponent(appId)}`, token);
   return payload.items;
@@ -274,9 +321,13 @@ export async function listAttachments(token: string, appId: string): Promise<Att
 
 export async function createAttachment(
   token: string,
-  input: { appId: string; fileName: string; mimeType: string; sizeBytes: number }
+  input: { appId: string; fileName: string; mimeType: string; sizeBytes: number; fileContentBase64?: string }
 ): Promise<AttachmentRecord> {
   return request<AttachmentRecord>("/attachments", token, { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function deleteAttachment(token: string, attachmentId: string): Promise<void> {
+  await request(`/attachments/${attachmentId}`, token, { method: "DELETE" });
 }
 
 export async function listAuditEvents(token: string): Promise<unknown[]> {
