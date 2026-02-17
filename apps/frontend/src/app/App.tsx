@@ -226,6 +226,25 @@ export function App(): JSX.Element {
     return map;
   }, [alerts]);
 
+  const dashboardStats = useMemo(() => {
+    const total = apps.length;
+    const ativos = apps.filter((app) => app.status === "ativo").length;
+    const inativos = apps.filter((app) => app.status === "inativo").length;
+
+    const appsComAlertaAlta = new Set(alerts.filter((a) => a.severity === "alta").map((a) => a.appId)).size;
+    const appsSemAlerta = apps.filter((app) => (alertsByApp.get(app.id) ?? []).length === 0).length;
+
+    const emDesenvolvimento = apps.filter((app) => {
+      const appAlerts = alertsByApp.get(app.id) ?? [];
+      const hasSetupPending = appAlerts.some((a) =>
+        ["MISSING_HOSTING", "MISSING_DOMAIN", "MISSING_INTEGRATION"].includes(a.code)
+      );
+      return hasSetupPending;
+    }).length;
+
+    return { total, ativos, inativos, emDesenvolvimento, appsComAlertaAlta, appsSemAlerta };
+  }, [alerts, alertsByApp, apps]);
+
   async function handleUpdateSelectedApp(e: React.FormEvent) {
     e.preventDefault();
     if (!session || !selectedAppId) {
@@ -326,6 +345,7 @@ export function App(): JSX.Element {
         <aside className="card sidebar">
           <h2 className="section-title">Menu</h2>
           <nav className="menu-list">
+            <a href="#mod-dashboard">Dashboard</a>
             <a href="#mod-app">Apps</a>
             <a href="#mod-hosting">Hospedagem</a>
             <a href="#mod-domain">Domínio</a>
@@ -343,6 +363,36 @@ export function App(): JSX.Element {
         </aside>
 
         <section className="card main">
+          <article id="mod-dashboard" className="card module-card">
+            <h3 className="section-title">Dashboard</h3>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <span className="muted">Total de Apps</span>
+                <strong>{dashboardStats.total}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="muted">Apps Ativos</span>
+                <strong>{dashboardStats.ativos}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="muted">Apps Inativos</span>
+                <strong>{dashboardStats.inativos}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="muted">Em Desenvolvimento</span>
+                <strong>{dashboardStats.emDesenvolvimento}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="muted">Com Alerta Alto</span>
+                <strong>{dashboardStats.appsComAlertaAlta}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="muted">Sem Alertas</span>
+                <strong>{dashboardStats.appsSemAlerta}</strong>
+              </div>
+            </div>
+          </article>
+
           <article id="mod-app" className="card module-card">
             <h3 className="section-title">Apps ({apps.length})</h3>
             <form className="grid" onSubmit={handleCreateApp}>

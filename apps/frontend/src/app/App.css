@@ -251,6 +251,28 @@ body {
   flex-wrap: wrap;
 }
 
+.stats-grid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.stat-card {
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.stat-card strong {
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
 .section-title {
   margin: 2px 0 12px;
   color: var(--text);
