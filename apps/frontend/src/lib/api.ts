@@ -156,6 +156,23 @@ export async function createApp(token: string, input: { name: string; commercial
   });
 }
 
+export async function updateApp(
+  token: string,
+  appId: string,
+  input: Partial<{ name: string; commercialName: string; description?: string; status: "ativo" | "inativo"; owner?: string }>
+): Promise<AppRecord> {
+  return request<AppRecord>(`/apps/${appId}`, token, {
+    method: "PUT",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function deleteApp(token: string, appId: string): Promise<void> {
+  await request(`/apps/${appId}`, token, {
+    method: "DELETE"
+  });
+}
+
 export async function getAppDetail(token: string, id: string): Promise<{
   app: AppRecord;
   hostings: HostingRecord[];

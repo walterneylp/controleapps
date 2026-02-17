@@ -186,6 +186,16 @@ body {
   border-color: var(--brand);
 }
 
+.button.secondary.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+}
+
+.button.secondary.danger:hover {
+  background: color-mix(in srgb, var(--panel-soft) 72%, var(--danger) 28%);
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+}
+
 .topbar {
   width: min(var(--content-max), 100%);
   margin: 0 auto;
@@ -233,6 +243,12 @@ body {
 .main {
   display: grid;
   gap: var(--space-3);
+}
+
+.action-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .section-title {

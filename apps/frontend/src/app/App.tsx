@@ -7,6 +7,7 @@ import {
   createIntegration,
   createSecret,
   createSubscription,
+  deleteApp,
   getAppDetail,
   listAlerts,
   listApps,
@@ -16,6 +17,7 @@ import {
   listSubscriptions,
   login,
   revealSecret,
+  updateApp,
   type AlertRecord,
   type AppRecord,
   type AttachmentRecord,
@@ -89,6 +91,10 @@ export function App(): JSX.Element {
   const [attachmentName, setAttachmentName] = useState("");
   const [attachmentType, setAttachmentType] = useState("application/pdf");
   const [attachmentSize, setAttachmentSize] = useState("1024");
+  const [editName, setEditName] = useState("");
+  const [editCommercialName, setEditCommercialName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editStatus, setEditStatus] = useState<"ativo" | "inativo">("ativo");
 
   async function refreshCoreData(token: string, currentSearch = "") {
     const [appsResult, alertsResult] = await Promise.all([listApps(token, currentSearch), listAlerts(token)]);
@@ -201,6 +207,15 @@ export function App(): JSX.Element {
     refreshDetail(selectedAppId).catch((err) => notifyError(err, "Falha ao carregar detalhe"));
   }, [session, selectedAppId]);
 
+  useEffect(() => {
+    if (!detail?.app) return;
+
+    setEditName(detail.app.name);
+    setEditCommercialName(detail.app.commercialName);
+    setEditDescription(detail.app.description ?? "");
+    setEditStatus(detail.app.status);
+  }, [detail?.app]);
+
   const alertsByApp = useMemo(() => {
     const map = new Map<string, AlertRecord[]>();
     for (const alert of alerts) {
@@ -210,6 +225,54 @@ export function App(): JSX.Element {
     }
     return map;
   }, [alerts]);
+
+  async function handleUpdateSelectedApp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session || !selectedAppId) {
+      setError("Selecione um app para editar.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateApp(session.accessToken, selectedAppId, {
+        name: editName,
+        commercialName: editCommercialName,
+        description: editDescription,
+        status: editStatus
+      });
+      await Promise.all([refreshCoreData(session.accessToken, search), refreshDetail(selectedAppId, session.accessToken)]);
+      notifyOk("App atualizado.");
+    } catch (err) {
+      notifyError(err, "Falha ao atualizar app");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteSelectedApp() {
+    if (!session || !selectedAppId) {
+      setError("Selecione um app para excluir.");
+      return;
+    }
+
+    if (!window.confirm("Deseja realmente excluir este app? Esta ação não pode ser desfeita.")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await deleteApp(session.accessToken, selectedAppId);
+      setSelectedAppId("");
+      setDetail(null);
+      await refreshCoreData(session.accessToken, search);
+      notifyOk("App excluído.");
+    } catch (err) {
+      notifyError(err, "Falha ao excluir app");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   if (!session) {
     return (
@@ -273,29 +336,6 @@ export function App(): JSX.Element {
             <a href="#mod-audit">Auditoria</a>
           </nav>
 
-          <h2 className="section-title">Cadastrar App</h2>
-          <form className="grid" onSubmit={handleCreateApp}>
-            <input className="input" placeholder="Nome interno" value={newAppName} onChange={(e) => setNewAppName(e.target.value)} />
-            <input className="input" placeholder="Nome comercial" value={newCommercialName} onChange={(e) => setNewCommercialName(e.target.value)} />
-            <input className="input" placeholder="Descrição" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
-            <button className="button" type="submit" disabled={loading}>Criar App</button>
-          </form>
-
-          <h2 id="mod-app" className="section-title" style={{ marginTop: 16 }}>Apps ({apps.length})</h2>
-          <div className="app-list">
-            {apps.map((app) => {
-              const appAlerts = alertsByApp.get(app.id) ?? [];
-              return (
-                <button key={app.id} className={`app-item ${selectedAppId === app.id ? "active" : ""}`} onClick={() => setSelectedAppId(app.id)}>
-                  <strong>{app.commercialName}</strong>
-                  <div className="muted">{app.name}</div>
-                  <div className="muted">{appAlerts.length ? `${appAlerts.length} alerta(s)` : "Sem alertas"}</div>
-                </button>
-              );
-            })}
-            {apps.length === 0 && <div className="muted">Nenhum app cadastrado.</div>}
-          </div>
-
           <div className="version-chip sidebar-version">
             <div>Versao: {VERSION_LABEL}</div>
             <div>Build: {BUILD_NUMBER}</div>
@@ -303,6 +343,46 @@ export function App(): JSX.Element {
         </aside>
 
         <section className="card main">
+          <article id="mod-app" className="card module-card">
+            <h3 className="section-title">Apps ({apps.length})</h3>
+            <form className="grid" onSubmit={handleCreateApp}>
+              <input className="input" placeholder="Nome interno" value={newAppName} onChange={(e) => setNewAppName(e.target.value)} />
+              <input className="input" placeholder="Nome comercial" value={newCommercialName} onChange={(e) => setNewCommercialName(e.target.value)} />
+              <input className="input" placeholder="Descrição" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+              <button className="button" type="submit" disabled={loading}>Criar App</button>
+            </form>
+
+            <div className="app-list" style={{ marginTop: 12 }}>
+              {apps.map((app) => {
+                const appAlerts = alertsByApp.get(app.id) ?? [];
+                return (
+                  <button key={app.id} className={`app-item ${selectedAppId === app.id ? "active" : ""}`} onClick={() => setSelectedAppId(app.id)}>
+                    <strong>{app.commercialName}</strong>
+                    <div className="muted">{app.name}</div>
+                    <div className="muted">{appAlerts.length ? `${appAlerts.length} alerta(s)` : "Sem alertas"}</div>
+                  </button>
+                );
+              })}
+              {apps.length === 0 && <div className="muted">Nenhum app cadastrado.</div>}
+            </div>
+
+            {selectedAppId && detail && (
+              <form className="grid" style={{ marginTop: 12 }} onSubmit={handleUpdateSelectedApp}>
+                <input className="input" placeholder="Nome interno" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                <input className="input" placeholder="Nome comercial" value={editCommercialName} onChange={(e) => setEditCommercialName(e.target.value)} />
+                <input className="input" placeholder="Descrição" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                <select className="select" value={editStatus} onChange={(e) => setEditStatus(e.target.value as "ativo" | "inativo")}>
+                  <option value="ativo">Ativo</option>
+                  <option value="inativo">Inativo</option>
+                </select>
+                <div className="action-row">
+                  <button className="button" type="submit" disabled={loading}>Salvar alterações</button>
+                  <button className="button secondary danger" type="button" disabled={loading} onClick={handleDeleteSelectedApp}>Excluir App</button>
+                </div>
+              </form>
+            )}
+          </article>
+
           {!selectedAppId || !detail ? (
             <p className="muted">Selecione um app para cadastrar hospedagem, domínio, integrações, segredos, assinaturas e anexos.</p>
           ) : (
