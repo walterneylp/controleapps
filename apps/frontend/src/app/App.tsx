@@ -33,6 +33,7 @@ import "./App.css";
 
 type Session = LoginResponse | null;
 type Theme = "light" | "dark";
+type MenuSection = "dashboard" | "app" | "hosting" | "domain" | "integration" | "subscription" | "secret" | "attachment" | "audit";
 
 interface AppDetailState {
   app: AppRecord;
@@ -46,6 +47,7 @@ interface AppDetailState {
 
 export function App(): JSX.Element {
   const [theme, setTheme] = useState<Theme>("light");
+  const [activeMenu, setActiveMenu] = useState<MenuSection>("dashboard");
 
   const [session, setSession] = useState<Session>(null);
   const [email, setEmail] = useState("admin@controle.local");
@@ -245,6 +247,11 @@ export function App(): JSX.Element {
     return { total, ativos, inativos, emDesenvolvimento, appsComAlertaAlta, appsSemAlerta };
   }, [alerts, alertsByApp, apps]);
 
+  const requiresSelectedApp = useMemo(
+    () => ["hosting", "domain", "integration", "subscription", "secret", "attachment"].includes(activeMenu),
+    [activeMenu]
+  );
+
   async function handleUpdateSelectedApp(e: React.FormEvent) {
     e.preventDefault();
     if (!session || !selectedAppId) {
@@ -345,15 +352,15 @@ export function App(): JSX.Element {
         <aside className="card sidebar">
           <h2 className="section-title">Menu</h2>
           <nav className="menu-list">
-            <a href="#mod-dashboard">Dashboard</a>
-            <a href="#mod-app">Apps</a>
-            <a href="#mod-hosting">Hospedagem</a>
-            <a href="#mod-domain">Domínio</a>
-            <a href="#mod-integration">Integrações</a>
-            <a href="#mod-subscription">Assinaturas</a>
-            <a href="#mod-secret">Segredos</a>
-            <a href="#mod-attachment">Anexos</a>
-            <a href="#mod-audit">Auditoria</a>
+            <button type="button" className={`menu-link ${activeMenu === "dashboard" ? "active" : ""}`} onClick={() => setActiveMenu("dashboard")}>Dashboard</button>
+            <button type="button" className={`menu-link ${activeMenu === "app" ? "active" : ""}`} onClick={() => setActiveMenu("app")}>Apps</button>
+            <button type="button" className={`menu-link ${activeMenu === "hosting" ? "active" : ""}`} onClick={() => setActiveMenu("hosting")}>Hospedagem</button>
+            <button type="button" className={`menu-link ${activeMenu === "domain" ? "active" : ""}`} onClick={() => setActiveMenu("domain")}>Domínio</button>
+            <button type="button" className={`menu-link ${activeMenu === "integration" ? "active" : ""}`} onClick={() => setActiveMenu("integration")}>Integrações</button>
+            <button type="button" className={`menu-link ${activeMenu === "subscription" ? "active" : ""}`} onClick={() => setActiveMenu("subscription")}>Assinaturas</button>
+            <button type="button" className={`menu-link ${activeMenu === "secret" ? "active" : ""}`} onClick={() => setActiveMenu("secret")}>Segredos</button>
+            <button type="button" className={`menu-link ${activeMenu === "attachment" ? "active" : ""}`} onClick={() => setActiveMenu("attachment")}>Anexos</button>
+            <button type="button" className={`menu-link ${activeMenu === "audit" ? "active" : ""}`} onClick={() => setActiveMenu("audit")}>Auditoria</button>
           </nav>
 
           <div className="version-chip sidebar-version">
@@ -363,7 +370,7 @@ export function App(): JSX.Element {
         </aside>
 
         <section className="card main">
-          <article id="mod-dashboard" className="card module-card">
+          <article id="mod-dashboard" className={`card module-card ${activeMenu !== "dashboard" ? "hidden" : ""}`}>
             <h3 className="section-title">Dashboard</h3>
             <div className="stats-grid">
               <div className="stat-card">
@@ -393,7 +400,7 @@ export function App(): JSX.Element {
             </div>
           </article>
 
-          <article id="mod-app" className="card module-card">
+          <article id="mod-app" className={`card module-card ${activeMenu !== "app" ? "hidden" : ""}`}>
             <h3 className="section-title">Apps ({apps.length})</h3>
             <form className="grid" onSubmit={handleCreateApp}>
               <input className="input" placeholder="Nome interno" value={newAppName} onChange={(e) => setNewAppName(e.target.value)} />
@@ -433,7 +440,7 @@ export function App(): JSX.Element {
             )}
           </article>
 
-          {!selectedAppId || !detail ? (
+          {requiresSelectedApp ? (!selectedAppId || !detail ? (
             <p className="muted">Selecione um app para cadastrar hospedagem, domínio, integrações, segredos, assinaturas e anexos.</p>
           ) : (
             <>
@@ -449,7 +456,7 @@ export function App(): JSX.Element {
               </div>
 
               <div className="two-col">
-                <article id="mod-hosting" className="card module-card">
+                <article id="mod-hosting" className={`card module-card ${activeMenu !== "hosting" ? "hidden" : ""}`}>
                   <h3 className="section-title">Hospedagem</h3>
                   <form
                     className="grid"
@@ -479,7 +486,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.hostings.map((h) => <div className="row" key={h.id}>{h.provider} · {h.ip} · {h.type}</div>)}{detail.hostings.length === 0 && <div className="row">Sem hospedagens</div>}</div>
                 </article>
 
-                <article id="mod-domain" className="card module-card">
+                <article id="mod-domain" className={`card module-card ${activeMenu !== "domain" ? "hidden" : ""}`}>
                   <h3 className="section-title">Domínio</h3>
                   <form
                     className="grid"
@@ -505,7 +512,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.domains.map((d) => <div className="row" key={d.id}>{d.domain} · {d.registrar} · {d.status}</div>)}{detail.domains.length === 0 && <div className="row">Sem domínios</div>}</div>
                 </article>
 
-                <article id="mod-integration" className="card module-card">
+                <article id="mod-integration" className={`card module-card ${activeMenu !== "integration" ? "hidden" : ""}`}>
                   <h3 className="section-title">Integrações IA/API</h3>
                   <form
                     className="grid"
@@ -533,7 +540,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.integrations.map((i) => <div className="row" key={i.id}>{i.provider} · {i.integrationName} {i.scope ? `· ${i.scope}` : ""}</div>)}{detail.integrations.length === 0 && <div className="row">Sem integrações</div>}</div>
                 </article>
 
-                <article id="mod-subscription" className="card module-card">
+                <article id="mod-subscription" className={`card module-card ${activeMenu !== "subscription" ? "hidden" : ""}`}>
                   <h3 className="section-title">Assinaturas Técnicas</h3>
                   <form
                     className="grid"
@@ -566,7 +573,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.subscriptions.map((s) => <div className="row" key={s.id}>{s.provider} · {s.cardHolderName} · **** {s.cardLast4} · {s.recurrence}</div>)}{detail.subscriptions.length === 0 && <div className="row">Sem assinaturas</div>}</div>
                 </article>
 
-                <article id="mod-secret" className="card module-card">
+                <article id="mod-secret" className={`card module-card ${activeMenu !== "secret" ? "hidden" : ""}`}>
                   <h3 className="section-title">Segredos</h3>
                   <form
                     className="grid"
@@ -615,7 +622,7 @@ export function App(): JSX.Element {
                   </div>
                 </article>
 
-                <article id="mod-attachment" className="card module-card">
+                <article id="mod-attachment" className={`card module-card ${activeMenu !== "attachment" ? "hidden" : ""}`}>
                   <h3 className="section-title">Anexos</h3>
                   <form
                     className="grid"
@@ -642,18 +649,22 @@ export function App(): JSX.Element {
                 </article>
               </div>
             </>
-          )}
+          )) : null}
 
           {success && <p className="success">{success}</p>}
           {error && <p className="error">{error}</p>}
 
-          <h3 id="mod-audit" className="section-title" style={{ marginTop: 20 }}>Auditoria (últimos eventos)</h3>
-          <div className="rows">
-            {auditEvents.map((item, idx) => (
-              <div className="row" key={idx}>{JSON.stringify(item)}</div>
-            ))}
-            {auditEvents.length === 0 && <div className="row">Sem eventos.</div>}
-          </div>
+          {activeMenu === "audit" && (
+            <>
+              <h3 id="mod-audit" className="section-title" style={{ marginTop: 20 }}>Auditoria (últimos eventos)</h3>
+              <div className="rows">
+                {auditEvents.map((item, idx) => (
+                  <div className="row" key={idx}>{JSON.stringify(item)}</div>
+                ))}
+                {auditEvents.length === 0 && <div className="row">Sem eventos.</div>}
+              </div>
+            </>
+          )}
         </section>
       </div>
     </main>
