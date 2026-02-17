@@ -386,10 +386,7 @@ body {
 }
 
 .version-chip {
-  position: fixed;
-  left: 12px;
-  bottom: 10px;
-  z-index: 60;
+  margin-top: 12px;
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -399,7 +396,10 @@ body {
   border-radius: 999px;
   padding: 6px 10px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(6px);
+}
+
+.sidebar-version {
+  align-self: end;
 }
 
 .app-list::-webkit-scrollbar,

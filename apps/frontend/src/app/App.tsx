@@ -237,10 +237,6 @@ export function App(): JSX.Element {
             {error && <p className="error">{error}</p>}
           </section>
         </div>
-        <div className="version-chip">
-          <div>Versao: {VERSION_LABEL}</div>
-          <div>Build: {BUILD_NUMBER}</div>
-        </div>
       </main>
     );
   }
@@ -298,6 +294,11 @@ export function App(): JSX.Element {
               );
             })}
             {apps.length === 0 && <div className="muted">Nenhum app cadastrado.</div>}
+          </div>
+
+          <div className="version-chip sidebar-version">
+            <div>Versao: {VERSION_LABEL}</div>
+            <div>Build: {BUILD_NUMBER}</div>
           </div>
         </aside>
 
