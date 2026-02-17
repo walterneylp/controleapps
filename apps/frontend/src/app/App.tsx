@@ -701,7 +701,7 @@ export function App(): JSX.Element {
             <h1 className="h1">Controle Técnico SaaS/APP</h1>
             <p className="muted">Login da plataforma interna.</p>
 
-            <form onSubmit={handleLogin} className="grid" style={{ marginTop: 12 }}>
+            <form onSubmit={handleLogin} className="grid mt-sm">
               <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
               <input className="input" type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
               <button className="button" type="submit" disabled={loading}>
@@ -709,13 +709,13 @@ export function App(): JSX.Element {
               </button>
             </form>
 
-            <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+            <div className="inline-actions mt-sm">
               <button className="button secondary" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
                 Tema: {theme === "light" ? "Claro" : "Escuro"}
               </button>
             </div>
 
-            <p className="muted" style={{ marginTop: 12 }}>Use: admin@controle.local / Admin@123</p>
+            <p className="muted mt-sm">Use: admin@controle.local / Admin@123</p>
             {error && <p className="error">{error}</p>}
           </section>
         </div>
@@ -821,7 +821,7 @@ export function App(): JSX.Element {
               <button className="button" type="submit" disabled={loading || session.user.role === "leitor"}>Criar App</button>
             </form>
 
-            <div className="app-list" style={{ marginTop: 12 }}>
+            <div className="app-list mt-sm">
               {apps.map((app) => {
                 const appAlerts = alertsByApp.get(app.id) ?? [];
                 return (
@@ -838,7 +838,7 @@ export function App(): JSX.Element {
             </div>
 
             {selectedAppId && detail && (
-              <form className="grid" style={{ marginTop: 12 }} onSubmit={handleUpdateSelectedApp}>
+              <form className="grid mt-sm" onSubmit={handleUpdateSelectedApp}>
                 <input className="input" placeholder="Nome interno" value={editName} onChange={(e) => setEditName(e.target.value)} />
                 <input className="input" placeholder="Nome comercial" value={editCommercialName} onChange={(e) => setEditCommercialName(e.target.value)} />
                 <input className="input" placeholder="Descrição" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
@@ -879,7 +879,7 @@ export function App(): JSX.Element {
                   <button className="button" type="submit" disabled={loading}>Criar Usuario</button>
                 </form>
 
-                <div className="rows" style={{ marginTop: 12 }}>
+                <div className="rows mt-sm">
                   {systemUsers.map((user) => (
                     <div className="row" key={user.id}>
                       <div>
@@ -888,7 +888,7 @@ export function App(): JSX.Element {
                           {user.emailConfirmed ? "Email confirmado" : "Email pendente"} · Criado em {new Date(user.createdAt).toLocaleDateString("pt-BR")}
                         </div>
                       </div>
-                      <div className="action-row" style={{ marginTop: 8 }}>
+                      <div className="action-row mt-xs">
                         <button
                           className="button secondary"
                           onClick={() => {
@@ -914,7 +914,7 @@ export function App(): JSX.Element {
                 </div>
 
                 {editingUserId && (
-                  <form className="grid" style={{ marginTop: 12 }} onSubmit={handleUpdateUser}>
+                  <form className="grid mt-sm" onSubmit={handleUpdateUser}>
                     <input className="input" placeholder="Nome" value={editUserName} onChange={(e) => setEditUserName(e.target.value)} />
                     <select className="select" value={editUserRole} onChange={(e) => setEditUserRole(e.target.value as "admin" | "editor" | "leitor")}>
                       <option value="admin">Admin</option>
@@ -950,7 +950,7 @@ export function App(): JSX.Element {
               <h2 className="section-title">{detail.app.commercialName}</h2>
               <p className="muted">{detail.app.description || "Sem descrição"}</p>
 
-              <div className="badges" style={{ marginBottom: 12 }}>
+              <div className="badges mb-sm">
                 {(alertsByApp.get(detail.app.id) ?? []).map((a) => (
                   <span key={`${a.code}-${a.message}`} className={`badge ${a.severity === "alta" ? "high" : "med"}`}>
                     {a.code}: {a.message}
@@ -1043,7 +1043,7 @@ export function App(): JSX.Element {
                             </div>
                           )}
                         </div>
-                        <div className="action-row" style={{ marginTop: 8 }}>
+                        <div className="action-row mt-xs">
                           <button className="button secondary" onClick={() => loadHostingForEdit(h)} disabled={session.user.role === "leitor"}>
                             Editar
                           </button>
@@ -1133,7 +1133,7 @@ export function App(): JSX.Element {
                           {d.domain} · {d.registrar} · {d.status}
                           {d.expiresAt && <div className="muted">Expira em: {d.expiresAt.slice(0, 10)}</div>}
                         </div>
-                        <div className="action-row" style={{ marginTop: 8 }}>
+                        <div className="action-row mt-xs">
                           <button type="button" className="button secondary" onClick={() => loadDomainForEdit(d)} disabled={session.user.role === "leitor"}>
                             Editar
                           </button>
@@ -1211,7 +1211,7 @@ export function App(): JSX.Element {
                     {detail.integrations.map((i) => (
                       <div className="row" key={i.id}>
                         <div>{i.provider} · {i.integrationName} {i.scope ? `· ${i.scope}` : ""}</div>
-                        <div className="action-row" style={{ marginTop: 8 }}>
+                        <div className="action-row mt-xs">
                           <button type="button" className="button secondary" onClick={() => loadIntegrationForEdit(i)} disabled={session.user.role === "leitor"}>
                             Editar
                           </button>
@@ -1297,7 +1297,7 @@ export function App(): JSX.Element {
                     {detail.subscriptions.map((s) => (
                       <div className="row" key={s.id}>
                         <div>{s.provider} · {s.cardHolderName} · **** {s.cardLast4} · {s.recurrence}</div>
-                        <div className="action-row" style={{ marginTop: 8 }}>
+                        <div className="action-row mt-xs">
                           <button type="button" className="button secondary" onClick={() => loadSubscriptionForEdit(s)} disabled={session.user.role === "leitor"}>
                             Editar
                           </button>
@@ -1351,7 +1351,7 @@ export function App(): JSX.Element {
                     {detail.secrets.map((s) => (
                       <div className="row" key={s.id}>
                         <div>{s.kind} · {s.label}</div>
-                        <div className="action-row" style={{ marginTop: 8 }}>
+                        <div className="action-row mt-xs">
                           {session.user.role === "admin" && (
                             <button
                               type="button"
@@ -1386,8 +1386,7 @@ export function App(): JSX.Element {
                         </div>
                         {editingSecretId === s.id && (session.user.role === "admin" || session.user.role === "editor") && (
                           <form
-                            className="grid"
-                            style={{ marginTop: 8 }}
+                            className="grid mt-xs"
                             onSubmit={(e) => {
                               e.preventDefault();
                               if (!newSecretValue.trim()) {
@@ -1423,7 +1422,7 @@ export function App(): JSX.Element {
                             </div>
                           </form>
                         )}
-                        {revealedSecrets[s.id] && <div className="muted" style={{ marginTop: 6 }}>Valor: {revealedSecrets[s.id]}</div>}
+                        {revealedSecrets[s.id] && <div className="muted mt-2xs">Valor: {revealedSecrets[s.id]}</div>}
                       </div>
                     ))}
                     {detail.secrets.length === 0 && <div className="row">Sem segredos</div>}
@@ -1486,7 +1485,7 @@ export function App(): JSX.Element {
                     {detail.attachments.map((a) => (
                       <div className="row" key={a.id}>
                         <div>{a.fileName} · {a.mimeType} · {a.sizeBytes} bytes</div>
-                        <div className="action-row" style={{ marginTop: 8 }}>
+                        <div className="action-row mt-xs">
                           <button type="button" className="button secondary danger" onClick={() => handleDeleteAttachment(a.id)} disabled={session.user.role === "leitor"}>
                             Excluir
                           </button>
@@ -1505,7 +1504,7 @@ export function App(): JSX.Element {
 
           {activeMenu === "audit" && (
             <>
-              <h3 id="mod-audit" className="section-title" style={{ marginTop: 20 }}>Auditoria (últimos eventos)</h3>
+              <h3 id="mod-audit" className="section-title mt-lg">Auditoria (últimos eventos)</h3>
               <div className="rows">
                 {auditEvents.map((item, idx) => (
                   <div className="row" key={idx}>{JSON.stringify(item)}</div>
