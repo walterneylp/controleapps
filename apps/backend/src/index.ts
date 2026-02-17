@@ -1,3 +1,4 @@
+import "express-async-errors";
 import cors from "cors";
 import express from "express";
 import { env } from "./config/env.js";
