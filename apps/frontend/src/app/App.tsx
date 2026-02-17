@@ -26,11 +26,11 @@ import {
   type SecretRecord,
   type SubscriptionRecord
 } from "../lib/api";
+import { BUILD_NUMBER, VERSION_LABEL } from "../generated/buildInfo";
 import "./App.css";
 
 type Session = LoginResponse | null;
 type Theme = "light" | "dark";
-const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "v0.1.0";
 
 interface AppDetailState {
   app: AppRecord;
@@ -237,7 +237,10 @@ export function App(): JSX.Element {
             {error && <p className="error">{error}</p>}
           </section>
         </div>
-        <div className="version-chip">{APP_VERSION}</div>
+        <div className="version-chip">
+          <div>Versao: {VERSION_LABEL}</div>
+          <div>Build: {BUILD_NUMBER}</div>
+        </div>
       </main>
     );
   }
@@ -262,6 +265,18 @@ export function App(): JSX.Element {
 
       <div className="layout">
         <aside className="card sidebar">
+          <h2 className="section-title">Menu</h2>
+          <nav className="menu-list">
+            <a href="#mod-app">Apps</a>
+            <a href="#mod-hosting">Hospedagem</a>
+            <a href="#mod-domain">Domínio</a>
+            <a href="#mod-integration">Integrações</a>
+            <a href="#mod-subscription">Assinaturas</a>
+            <a href="#mod-secret">Segredos</a>
+            <a href="#mod-attachment">Anexos</a>
+            <a href="#mod-audit">Auditoria</a>
+          </nav>
+
           <h2 className="section-title">Cadastrar App</h2>
           <form className="grid" onSubmit={handleCreateApp}>
             <input className="input" placeholder="Nome interno" value={newAppName} onChange={(e) => setNewAppName(e.target.value)} />
@@ -270,7 +285,7 @@ export function App(): JSX.Element {
             <button className="button" type="submit" disabled={loading}>Criar App</button>
           </form>
 
-          <h2 className="section-title" style={{ marginTop: 16 }}>Apps ({apps.length})</h2>
+          <h2 id="mod-app" className="section-title" style={{ marginTop: 16 }}>Apps ({apps.length})</h2>
           <div className="app-list">
             {apps.map((app) => {
               const appAlerts = alertsByApp.get(app.id) ?? [];
@@ -303,7 +318,7 @@ export function App(): JSX.Element {
               </div>
 
               <div className="two-col">
-                <article className="card module-card">
+                <article id="mod-hosting" className="card module-card">
                   <h3 className="section-title">Hospedagem</h3>
                   <form
                     className="grid"
@@ -333,7 +348,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.hostings.map((h) => <div className="row" key={h.id}>{h.provider} · {h.ip} · {h.type}</div>)}{detail.hostings.length === 0 && <div className="row">Sem hospedagens</div>}</div>
                 </article>
 
-                <article className="card module-card">
+                <article id="mod-domain" className="card module-card">
                   <h3 className="section-title">Domínio</h3>
                   <form
                     className="grid"
@@ -359,7 +374,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.domains.map((d) => <div className="row" key={d.id}>{d.domain} · {d.registrar} · {d.status}</div>)}{detail.domains.length === 0 && <div className="row">Sem domínios</div>}</div>
                 </article>
 
-                <article className="card module-card">
+                <article id="mod-integration" className="card module-card">
                   <h3 className="section-title">Integrações IA/API</h3>
                   <form
                     className="grid"
@@ -387,7 +402,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.integrations.map((i) => <div className="row" key={i.id}>{i.provider} · {i.integrationName} {i.scope ? `· ${i.scope}` : ""}</div>)}{detail.integrations.length === 0 && <div className="row">Sem integrações</div>}</div>
                 </article>
 
-                <article className="card module-card">
+                <article id="mod-subscription" className="card module-card">
                   <h3 className="section-title">Assinaturas Técnicas</h3>
                   <form
                     className="grid"
@@ -420,7 +435,7 @@ export function App(): JSX.Element {
                   <div className="rows">{detail.subscriptions.map((s) => <div className="row" key={s.id}>{s.provider} · {s.cardHolderName} · **** {s.cardLast4} · {s.recurrence}</div>)}{detail.subscriptions.length === 0 && <div className="row">Sem assinaturas</div>}</div>
                 </article>
 
-                <article className="card module-card">
+                <article id="mod-secret" className="card module-card">
                   <h3 className="section-title">Segredos</h3>
                   <form
                     className="grid"
@@ -469,7 +484,7 @@ export function App(): JSX.Element {
                   </div>
                 </article>
 
-                <article className="card module-card">
+                <article id="mod-attachment" className="card module-card">
                   <h3 className="section-title">Anexos</h3>
                   <form
                     className="grid"
@@ -501,7 +516,7 @@ export function App(): JSX.Element {
           {success && <p className="success">{success}</p>}
           {error && <p className="error">{error}</p>}
 
-          <h3 className="section-title" style={{ marginTop: 20 }}>Auditoria (últimos eventos)</h3>
+          <h3 id="mod-audit" className="section-title" style={{ marginTop: 20 }}>Auditoria (últimos eventos)</h3>
           <div className="rows">
             {auditEvents.map((item, idx) => (
               <div className="row" key={idx}>{JSON.stringify(item)}</div>
@@ -510,7 +525,10 @@ export function App(): JSX.Element {
           </div>
         </section>
       </div>
-      <div className="version-chip">{APP_VERSION}</div>
+      <div className="version-chip">
+        <div>Versao: {VERSION_LABEL}</div>
+        <div>Build: {BUILD_NUMBER}</div>
+      </div>
     </main>
   );
 }
