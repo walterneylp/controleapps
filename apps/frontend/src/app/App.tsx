@@ -141,22 +141,40 @@ export function App(): JSX.Element {
   const [editUserPassword, setEditUserPassword] = useState("");
 
   async function refreshCoreData(token: string, currentSearch = "") {
-    const [appsResult, alertsResult] = await Promise.all([listApps(token, currentSearch), listAlerts(token)]);
-    setApps(appsResult);
-    setAlerts(alertsResult);
+    const [appsResult, alertsResult] = await Promise.allSettled([listApps(token, currentSearch), listAlerts(token)]);
+
+    if (appsResult.status === "fulfilled") {
+      setApps(appsResult.value);
+    } else {
+      setApps([]);
+    }
+
+    if (alertsResult.status === "fulfilled") {
+      setAlerts(alertsResult.value);
+    } else {
+      setAlerts([]);
+    }
   }
 
   async function refreshDetail(appId: string, token = session?.accessToken) {
     if (!token || !appId) return;
 
-    const [base, subscriptions, secrets, attachments] = await Promise.all([
+    const [baseResult, subscriptionsResult, secretsResult, attachmentsResult] = await Promise.allSettled([
       getAppDetail(token, appId),
       listSubscriptions(token, appId),
       listSecrets(token, appId),
       listAttachments(token, appId)
     ]);
 
-    setDetail({ ...base, subscriptions, secrets, attachments });
+    if (baseResult.status !== "fulfilled") {
+      throw baseResult.reason instanceof Error ? baseResult.reason : new Error("Falha ao carregar detalhe do app");
+    }
+
+    const subscriptions = subscriptionsResult.status === "fulfilled" ? subscriptionsResult.value : [];
+    const secrets = secretsResult.status === "fulfilled" ? secretsResult.value : [];
+    const attachments = attachmentsResult.status === "fulfilled" ? attachmentsResult.value : [];
+
+    setDetail({ ...baseResult.value, subscriptions, secrets, attachments });
   }
 
   function notifyOk(message: string) {

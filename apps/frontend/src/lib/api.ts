@@ -131,7 +131,8 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message ?? "Falha na requisicao");
+    const message = payload?.error?.message ?? `Falha na requisicao (${response.status})`;
+    throw new Error(message);
   }
 
   return payload as T;
